@@ -34,4 +34,4 @@ from rag.rag_retriever import RAGRetriever
 # print("citation_documents2:", citation_documents2)
 
 random_document = random_crawling(10, 5)
-print("random_document:", random_document)
+document_print(random_document)

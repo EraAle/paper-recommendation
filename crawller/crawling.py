@@ -3,6 +3,7 @@ import requests
 import re
 import math
 import random
+import textwrap
 
 
 # 검색 키워드 및 최대 결과 수 설정
@@ -359,3 +360,37 @@ def random_crawling(sample_size = 20, num=10):
     random_document = random_candidate[:num]
 
     return random_document
+
+def document_print(document):
+    """
+       논문 정보가 담긴 리스트를 받아와서 사람이 보기 좋은 형태로 출력합니다.
+       - documents: [{'title': ..., 'url': ..., 'abstract': ...}, ...]
+       """
+    if not document:
+        print("출력할 문서가 없습니다.")
+        return
+
+    # 각 문서를 번호와 함께 출력
+    for i, doc in enumerate(document, 1):
+        print(f"\n{'=' * 25} Document {i} {'=' * 25}")
+
+        # 1. 제목 출력
+        print(f"Title: {doc.get('title', 'N/A')}")
+
+        # 2. URL 출력
+        print(f"URL: {doc.get('url', 'N/A')}")
+
+        # 3. 초록 출력 (자동 줄 바꿈)
+        print("Abstract:")
+
+        # textwrap을 사용해 가로 80자에 맞춰 들여쓰기와 함께 줄 바꿈
+        abstract = doc.get('abstract', 'N/A')
+        wrapped_abstract = textwrap.fill(
+            abstract,
+            width=80,
+            initial_indent="    ",  # 첫 줄 들여쓰기
+            subsequent_indent="    "  # 나머지 줄 들여쓰기
+        )
+        print(wrapped_abstract)
+
+    print(f"\n{'=' * 58}")
