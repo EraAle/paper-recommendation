@@ -5,6 +5,46 @@ import requests
 # 이거 쓸 때 리스트 내의 키워드는 ""로만 작성해달라 하기 ''은 안됨
 # sort 옵션은 relevance, lastupdate, submitted 세 가지
 
+def make_query(keyword_list, operator="AND", field = "title"):
+    # 1. 리스트의 모든 키워드를 큰따옴표(")로 감싸줍니다. (리스트 컴프리헨션)
+    #    'def gh'와 같은 구문 검색을 위해 필수적입니다.
+    quoted_keywords = [f'"{k}"' for k in keyword_list]
+
+
+    # 2. 연산자 양옆에 공백을 넣어 ' AND ' 또는 ' OR ' 형태로 만듭니다.
+    separator = f" {operator} "
+
+    # 3. 따옴표로 감싸진 키워드들을 연산자로 연결합니다. (join 메서드)
+    search_query = separator.join(quoted_keywords)
+
+    if field == "title":
+        field
+    elif field == "abstract":
+        search_query = f'abs:{search_query}'
+    else:
+        search_query = f'all:{search_query}'
+
+    return search_query
+
+def make_query_with_list(keyword_list, operator_list, field="title"):
+    quoted_keywords = [f'"{k}"' for k in keyword_list]
+
+    search_query = quoted_keywords[0]
+
+    for op, keyword in zip(operator_list, quoted_keywords[1:]):
+        search_query += f" {op} {keyword}"
+
+    if field == "title":
+        search_query = f'ti:{search_query}'
+    elif field == "abstract":
+        search_query = f'abs:{search_query}'
+    else:
+        search_query = f'all:{search_query}'
+
+    return search_query
+
+def add_field(query, )
+
 def crawling_basic(keyword_list, num=50, operator="AND", sort_op="relevance"):
     """
     Args:
@@ -12,15 +52,8 @@ def crawling_basic(keyword_list, num=50, operator="AND", sort_op="relevance"):
         num (int): 가져올 최대 논문 수
         operator (str): 키워드를 연결할 논리 연산자 ("AND", "OR")
     """
-    # 1. 리스트의 모든 키워드를 큰따옴표(")로 감싸줍니다. (리스트 컴프리헨션)
-    #    'def gh'와 같은 구문 검색을 위해 필수적입니다.
-    quoted_keywords = [f'"{k}"' for k in keyword_list]
 
-    # 2. 연산자 양옆에 공백을 넣어 ' AND ' 또는 ' OR ' 형태로 만듭니다.
-    separator = f" {operator} "
-
-    # 3. 따옴표로 감싸진 키워드들을 연산자로 연결합니다. (join 메서드)
-    search_query = separator.join(quoted_keywords)
+    search_query = make_query(keyword_list, operator)
 
     documents = []
 
@@ -180,34 +213,7 @@ def get_citation_and_title(title_to_search, email):
 
     except (requests.exceptions.RequestException, KeyError, IndexError):
         return ('(API 요청 오류)', 0)
-# candidate_num = 후보 몇 개 둘건지
-# num = citation top k개 선택
-# 이거는 크롤링해서 가져온 dict을 citation에 따라 정렬
 
-# crossref api는 사용할 때 email을 보내면 안정적인 서비스 제공
-# 신원을 밝힌 것이라서
-# citation이 높은 순으로 정렬된 paper_dict을 반환
-# def sort_citation(paper_dict, email):
-#     title_list = paper_dict.get("title")
-#     abstract_list = paper_dict.get("abstract")
-#     pdf_url_list = paper_dict.get("pdf_url")
-#
-#     citation_list = []
-#     if not title_list:
-#         print("title 없음")
-#
-#     BASE_URL = "https://api.crossref.org/works"
-#
-#     for title in title_list:
-#         citation_count = get_citation(title, email)
-#         citation_list.append(citation_count)
-#
-#     paper_dict["title"] = sort_list(title_list, citation_list)
-#     paper_dict["abstract"] = sort_list(abstract_list, citation_list)
-#     paper_dict["pdf_url"] = sort_list(pdf_url_list, citation_list)
-#     paper_dict["citation_count"] = sorted(citation_list, reverse=True)
-#
-#     return paper_dict
 
 def sort_citation(documents, email):
     BASE_URL = "https://api.crossref.org/works"
