@@ -1,5 +1,6 @@
 import arxiv
 import requests
+import re
 
 # 검색 키워드 및 최대 결과 수 설정
 # 이거 쓸 때 리스트 내의 키워드는 ""로만 작성해달라 하기 ''은 안됨
@@ -10,42 +11,81 @@ def make_query(keyword_list, operator="AND", field = "title"):
     #    'def gh'와 같은 구문 검색을 위해 필수적입니다.
     quoted_keywords = [f'"{k}"' for k in keyword_list]
 
+    if isinstance(operator, str):
+        # 2. 연산자 양옆에 공백을 넣어 ' AND ' 또는 ' OR ' 형태로 만듭니다.
+        separator = f" {operator} "
 
-    # 2. 연산자 양옆에 공백을 넣어 ' AND ' 또는 ' OR ' 형태로 만듭니다.
-    separator = f" {operator} "
+        # 3. 따옴표로 감싸진 키워드들을 연산자로 연결합니다. (join 메서드)
+        search_query = separator.join(quoted_keywords)
 
-    # 3. 따옴표로 감싸진 키워드들을 연산자로 연결합니다. (join 메서드)
-    search_query = separator.join(quoted_keywords)
+    elif isinstance(operator, list):
+        quoted_keywords = [f'"{k}"' for k in keyword_list]
 
-    if field == "title":
-        field
-    elif field == "abstract":
-        search_query = f'abs:{search_query}'
+        search_query = quoted_keywords[0]
+
+        for op, keyword in zip(operator, quoted_keywords[1:]):
+            search_query += f" {op} {keyword}"
+
     else:
-        search_query = f'all:{search_query}'
+        raise TypeError("operator TypeError")
 
-    return search_query
+    query = add_field(search_query, field)
 
-def make_query_with_list(keyword_list, operator_list, field="title"):
-    quoted_keywords = [f'"{k}"' for k in keyword_list]
+    return query
 
-    search_query = quoted_keywords[0]
+def add_field(query, field):
+    """
+        쿼리 문자열과 필드(문자열 또는 리스트)를 받아 접두사를 추가합니다.
 
-    for op, keyword in zip(operator_list, quoted_keywords[1:]):
-        search_query += f" {op} {keyword}"
+        :param query: '"a" AND "b"' 형태의 검색 쿼리
+        :param field: 'title', ['title', 'abstract'] 등 필드 정보
+        :return: 접두사가 추가된 새로운 쿼리 문자열
+        """
+    # 필드 이름과 실제 접두사 매핑
+    PREFIX_MAP = {
+        'title': 'ti',
+        'abstract': 'abs',
+        'all': 'all'
+    }
 
-    if field == "title":
-        search_query = f'ti:{search_query}'
-    elif field == "abstract":
-        search_query = f'abs:{search_query}'
+    # 1. 쿼리를 키워드와 연산자로 분리
+    parts = re.split(r' (AND|OR|ANDNOT) ', query)
+    keywords = parts[::2]
+    num_keywords = len(keywords)
+
+    field_prefixes = []
+
+    # 2. fields 파라미터 타입에 따라 분기 처리
+    if isinstance(field, str):
+        # 문자열인 경우, 모든 키워드에 동일한 접두사 적용
+        if field not in PREFIX_MAP:
+            raise ValueError(f"지원하지 않는 필드 이름입니다: {field}")
+        prefix = PREFIX_MAP[field]
+        field_prefixes = [prefix] * num_keywords
+
+    elif isinstance(field, list):
+        # 리스트인 경우, 각 키워드에 순서대로 접두사 적용
+        if num_keywords != len(field):
+            raise ValueError(
+                f"키워드 개수({num_keywords})와 필드 리스트 길이({len(field)})가 일치하지 않습니다."
+            )
+        # 리스트의 각 필드 이름을 실제 접두사로 변환
+        field_prefixes = [PREFIX_MAP.get(f) for f in field]
+        if None in field_prefixes:
+            raise ValueError(f"지원하지 않는 필드 이름이 리스트에 포함되어 있습니다: {field}")
+
     else:
-        search_query = f'all:{search_query}'
+        raise TypeError("fields 파라미터는 문자열 또는 리스트여야 합니다.")
 
-    return search_query
+    # 3. 각 키워드 앞에 변환된 접두사 추가
+    for i, prefix in enumerate(field_prefixes):
+        keyword_index = i * 2
+        parts[keyword_index] = f"{prefix}:{parts[keyword_index]}"
 
-def add_field(query, )
+    # 4. 모든 부분을 다시 하나의 문자열로 합침
+    return " ".join(parts)
 
-def crawling_basic(keyword_list, num=50, operator="AND", sort_op="relevance"):
+def crawling_basic(search_query, num=50, sort_op="relevance"):
     """
     Args:
         keyword_list (list): 검색할 키워드가 담긴 리스트 (e.g., ["abc", "def gh"])
@@ -53,12 +93,7 @@ def crawling_basic(keyword_list, num=50, operator="AND", sort_op="relevance"):
         operator (str): 키워드를 연결할 논리 연산자 ("AND", "OR")
     """
 
-    search_query = make_query(keyword_list, operator)
-
     documents = []
-
-    print(f"✅ 생성된 쿼리: {search_query}")
-
 
     max_results = num
 
