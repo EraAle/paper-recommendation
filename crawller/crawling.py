@@ -159,7 +159,7 @@ def crawling_basic(search_query, num=50, sort_op="relevance"):
 
 # 이 함수는 한 번에 한 개의 논문 제목에 대한 citation을 받아옴
 # crossref api로 검색 안 되는 것들은 그냥 citation 0으로 리턴
-def get_citation(title,email):
+def get_citation_crossref(title,email):
     BASE_URL = "https://api.crossref.org/works"
 
     params = {
@@ -207,6 +207,39 @@ def get_citation(title,email):
 
 import requests
 
+def get_citation_openalex(title,email):
+    """
+       OpenAlex API를 이용해 논문 제목으로 인용 횟수를 검색합니다.
+
+       :param title: 검색할 논문 제목 (e.g., "Attention Is All You Need")
+       :param email: Polite Pool 참여를 위한 사용자 이메일 주소
+       :return: 인용 횟수 (int) 또는 찾지 못했을 경우 0
+       """
+    base_url = "https://api.openalex.org/works"
+    params = {
+        'search': title,  # 논문 제목으로 검색
+        'per_page': 1,  # 가장 관련성 높은 결과 1개만 요청
+        'mailto': email  # Polite Pool 참여
+    }
+
+    try:
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()  # HTTP 오류 발생 시 예외 처리
+        data = response.json()
+
+        # 검색 결과가 있고, 결과 리스트가 비어있지 않은지 확인
+        if data.get('results') and len(data['results']) > 0:
+            # 첫 번째 결과에서 인용 횟수('cited_by_count')를 가져옴
+            citation_count = data['results'][0].get('cited_by_count', 0)
+            return citation_count
+        else:
+            # 검색 결과가 없는 경우
+            return 0
+
+    except requests.exceptions.RequestException as e:
+        print(f"API 요청 중 오류가 발생했습니다: {e}")
+        return 0
+
 
 def get_citation_and_title(title_to_search, email):
     """
@@ -250,14 +283,40 @@ def get_citation_and_title(title_to_search, email):
         return ('(API 요청 오류)', 0)
 
 
-def sort_citation(documents, email):
+def sort_citation_crossref(documents, email):
     BASE_URL = "https://api.crossref.org/works"
 
     title_list = [doc["title"] for doc in documents]
     citation_list = []
 
     for title in title_list:
-        citation_count = get_citation(title, email)
+        citation_count = get_citation_crossref(title, email)
+        citation_list.append(citation_count)
+
+    print(citation_list)
+    # 1. title_list와 citation_count를 zip으로 묶어줍니다.
+    #    결과: [('Attention...', 96172), ('BERT...', 83011), ('An Image...', 47538)]
+    paired_list = list(zip(documents, citation_list))
+
+    # 2. 묶인 리스트를 인용수(각 쌍의 두 번째 요소) 기준으로 내림차순 정렬합니다.
+    #    key=lambda item: item[1]  --> 각 쌍(item)의 1번 인덱스 값(인용수)을 기준으로 정렬
+    #    reverse=True             --> 내림차순 (큰 숫자가 먼저 오도록)
+    sorted_pairs = sorted(paired_list, key=lambda item: item[1], reverse=True)
+
+    # 3. 정렬된 쌍 리스트에서 제목(각 쌍의 첫 번째 요소)만 다시 추출합니다.
+    sorted_target_list = [tar for tar, criteria in sorted_pairs]
+
+
+    return sorted_target_list
+
+def sort_citation_openalex(documents, email):
+    BASE_URL = "https://api.openalex.org/works"
+
+    title_list = [doc["title"] for doc in documents]
+    citation_list = []
+
+    for title in title_list:
+        citation_count = get_citation_openalex(title, email)
         citation_list.append(citation_count)
 
     print(citation_list)
