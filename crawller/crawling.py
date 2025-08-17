@@ -1,6 +1,9 @@
 import arxiv
 import requests
 import re
+import math
+import random
+
 
 # 검색 키워드 및 최대 결과 수 설정
 # 이거 쓸 때 리스트 내의 키워드는 ""로만 작성해달라 하기 ''은 안됨
@@ -332,5 +335,27 @@ def sort_citation_openalex(documents, email):
     # 3. 정렬된 쌍 리스트에서 제목(각 쌍의 첫 번째 요소)만 다시 추출합니다.
     sorted_target_list = [tar for tar, criteria in sorted_pairs]
 
-
     return sorted_target_list
+
+def random_crawling(sample_size = 20, num=10):
+    query_list = ["the", "a", "is", "of", "and", "in", "to"]
+
+    random_query1 = random.choice(query_list)
+    random_query2 = random.choice(query_list)
+    random_query3 = random.choice(query_list)
+
+    doc_relevance = crawling_basic(random_query1, num=sample_size, sort_op="relevance")
+    doc_lastupdate = crawling_basic(random_query2, num=sample_size, sort_op="lastupdate")
+    doc_submitted = crawling_basic(random_query3, num=sample_size, sort_op="submitted")
+
+
+    random_relevance = random.sample(doc_relevance, sample_size)
+    random_lastupdate = random.sample(doc_lastupdate, sample_size)
+    random_submitted = random.sample(doc_submitted, sample_size)
+
+    random_candidate = random_relevance + random_lastupdate + random_submitted
+    random.shuffle(random_candidate)
+
+    random_document = random_candidate[:num]
+
+    return random_document
