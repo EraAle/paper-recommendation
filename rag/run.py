@@ -1,7 +1,10 @@
-from rag.model import get_model
+from rag.hybrid_retriever import HybridRetriever
+from rag.model import get_encoder
 from rag.rag_retriever import RAGRetriever
 from rich.logging import RichHandler
 import logging
+
+from rag.reranker import Reranker
 
 logging.basicConfig(
     level="INFO",
@@ -10,29 +13,54 @@ logging.basicConfig(
     handlers=[RichHandler()]
 )
 
+def hybrid_retrieve(model: HybridRetriever,
+                    query: str,
+                    documents: list[dict],
+                    alpha: float=0.7,
+                    top_k: int=1000):
+    # if len(documents) <= top_k:
+    #     return documents
 
-def retrieve_by_title(retriever: RAGRetriever, query: str, documents: list[dict]) -> list[dict]:
-    if len(documents) <= 100:
-        return documents
+    titles = [doc['title'] for doc in documents]
+    abstracts = [doc['abstract'] for doc in documents]
 
-    title_list = [doc["title"] for doc in documents]
-    top_indices = retriever.run(query, title_list, top_k=100)
-    filtered_documents = [documents[i] for i in top_indices]
+    top_indices = model.run(query, titles, abstracts, alpha=alpha, top_k=top_k)
+    retrieved_documents = [documents[i] for i in top_indices]
 
-    return filtered_documents
+    return retrieved_documents
 
-def retrieve_by_title_and_abstract(retriever: RAGRetriever,
-                         query: str,
-                         filtered_documents: list[dict],
-                         top_k: int) -> list[dict]:
-    abstract_list = [doc["title"] + "\n" + doc["abstract"] for doc in filtered_documents]
-    top_indices = retriever.run(query, abstract_list, top_k=top_k)
-    filtered_documents = [filtered_documents[i] for i in top_indices]
+def rag_retrieve(model: RAGRetriever,
+                 query: str,
+                 documents: list[dict],
+                 top_k: int=100):
+    # if len(documents) <= top_k:
+    #     return documents
 
-    return filtered_documents
+    refs = [doc['title'] + "\n" + doc['abstract'] for doc in documents]
 
+    top_indices = model.run(query, refs, top_k=top_k)
+    retrieved_documents = [documents[i] for i in top_indices]
 
-def run(query: str, documents: list[dict], top_k: int = 5, model_name: str = "all-MiniLM-L6-v2") -> list[dict]:
+    return retrieved_documents
+
+def rerank(model: Reranker,
+           query: str,
+           documents: list[dict],
+           top_k: int=10):
+    refs = [doc['title'] + "\n" + doc['abstract'] for doc in documents]
+
+    top_indices = model.run(query, refs, top_k=top_k)
+    retrieved_documents = [documents[i] for i in top_indices]
+
+    return retrieved_documents
+
+def run(query: str,
+        documents: list[dict],
+        alpha: float=0.7,
+        top_k: int = 10,
+        encoder_model_name: str = "all-MiniLM-L6-v2",
+        cross_encoder_model_name: str = "ms-marco-MiniLM-L-6-v2",
+        use_cuda: bool = True) -> list[dict]:
     """
     Retrieve the top-k most relevant documents for a given query.
 
@@ -45,14 +73,27 @@ def run(query: str, documents: list[dict], top_k: int = 5, model_name: str = "al
                 "url": str,
                 "abstract": str
             }
+        alpha (float, optional): weight for BM25 score (1-alpha for cosine similarity)
         top_k (int, optional): Number of top results to return. maximum=20, default=5.
-        model_name (str, optional): model_name for BERT used in RAGRetriever. Defaults to "all-MiniLM-L6-v2".
+        encoder_model_name (str, optional): model_name for BERT used in RAGRetriever. Defaults to "all-MiniLM-L6-v2".
+        cross_encoder_model_name (str, optional): model_name for Reranker. Defaults to "ms-marco-MiniLM-L-6-v2".
+        use_cuda (bool, optional): Whether to use CUDA or not. Defaults to True.
 
     Returns:
         list[dict]: A list of tuples containing top-k documents sorted by score in descending order.
     """
-    retriever = RAGRetriever(model_name)
-    filtered_documents = retrieve_by_title(retriever, query, documents)
-    filtered_documents = retrieve_by_title_and_abstract(retriever, query, filtered_documents, top_k)
+    logging.info("Loading Hybrid Retriever...")
+    hybrid_retriever = HybridRetriever(encoder_model_name, use_cuda=use_cuda)
+    logging.info("Loading RAG Retriever...")
+    rag_retriever = RAGRetriever(encoder_model_name, use_cuda=use_cuda)
+    logging.info("Loading Reranker...")
+    reranker = Reranker(cross_encoder_model_name, use_cuda=use_cuda)
 
-    return filtered_documents
+    logging.info("Running Hybrid Retriever...")
+    retrieved_documents = hybrid_retrieve(hybrid_retriever, query, documents, alpha=alpha)
+    logging.info("Running RAG Retriever...")
+    retrieved_documents = rag_retrieve(rag_retriever, query, retrieved_documents)
+    logging.info("Running Reranker...")
+    retrieved_documents = rerank(reranker, query, retrieved_documents, top_k=top_k)
+
+    return retrieved_documents
