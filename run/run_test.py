@@ -2,21 +2,21 @@ from crawller.crawling import *
 from rag.run import *
 from rag.rag_retriever import RAGRetriever
 
-# query = "I want to find paper related to transformer rag and mixure of experts."
-#
-# keyword_list = ["transformer", "Mixture of experts", "rag"]
-#
-# search_query = make_query(keyword_list, operator="AND", field="title")
-#
-# operator_list = ["AND", "OR"]
-#
-# field_list = ["title", "abstract", "all"]
-#
-# search_query2 = make_query(keyword_list, operator_list, field_list)
-#
-# print("search_query:", search_query)
-# print("search_query2:", search_query2)
-#
+query = "I want to find paper related to transformer rag and mixure of experts."
+
+keyword_list = ["transformer", "Mixture of experts"]
+
+search_query = make_query(keyword_list, operator="AND", field="title")
+
+operator_list = ["AND"]
+
+field_list = ["title", "abstract"]
+
+search_query2 = make_query(keyword_list, operator_list, field_list)
+
+print("search_query:", search_query)
+print("search_query2:", search_query2)
+
 #
 # email = "ljjstar0714@naver.com"
 #
@@ -32,6 +32,6 @@ from rag.rag_retriever import RAGRetriever
 #
 # citation_documents2 = sort_citation_openalex(filltered_documents, email)
 # print("citation_documents2:", citation_documents2)
-
-random_document = random_crawling(10, 5)
-document_print(random_document)
+#
+# random_document = random_crawling(10, 5)
+# document_print(random_document)
