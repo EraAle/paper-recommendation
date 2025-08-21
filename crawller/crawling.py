@@ -86,7 +86,7 @@ def crawling_openreview(search_query: str, limit: int = 50, sort_op: str="releva
 
 
     # 1. API 클라이언트 설정 (API V2 사용)
-    if date[1] >= 2023:
+    if date[0] >= 2023:
         documents = []
         client = openreview.api.OpenReviewClient(baseurl='https://api2.openreview.net')
         # 3. OpenReview에 논문 검색 요청
@@ -120,7 +120,7 @@ def crawling_openreview(search_query: str, limit: int = 50, sort_op: str="releva
         # 3. OpenReview에 논문 검색 요청
         # client.get_all_notes()는 검색 결과를 순회할 수 있는 iterator를 반환합니다.
         # query: 제목, 초록, 저자 등 주요 필드에서 검색할 키워드입니다.
-        search_results = client.get_all_notes(
+        search_results = client.get_notes(
             query=search_query,
             details='direct',  # 리뷰나 댓글 등 부가 정보 제외, 직접적인 내용만 가져옵니다.
             limit=limit
@@ -169,16 +169,16 @@ def crawling_openreview(search_query: str, limit: int = 50, sort_op: str="releva
         # 3. OpenReview에 논문 검색 요청
         # client.get_all_notes()는 검색 결과를 순회할 수 있는 iterator를 반환합니다.
         # query: 제목, 초록, 저자 등 주요 필드에서 검색할 키워드입니다.
-        search1 = client_v1.get_all_notes(
+        search1 = client_v1.get_notes(
             query=search_query,
             details='direct',  # 리뷰나 댓글 등 부가 정보 제외, 직접적인 내용만 가져옵니다.
-            limit=limit
+            limit=limit_v1
         )
 
         search2 = client_v2.get_all_notes(
             query=search_query,
             details='direct',  # 리뷰나 댓글 등 부가 정보 제외, 직접적인 내용만 가져옵니다.
-            limit=limit
+            limit=limit_v2
         )
 
         for note in search1:
