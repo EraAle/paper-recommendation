@@ -71,6 +71,66 @@ def make_query_arxiv(keyword_list: list[str], operator: list[str] = ["AND"], fie
 
     return "".join(query_parts)
 
+def make_query_openreview_search(keyword_list: list[str], operator: list[str] = ["AND"], field: list[str] = ["title"]):
+    """
+
+      Args:
+          keyword_list: 검색할 키워드 리스트.
+          operator: 키워드를 연결할 논리 연산자 리스트.
+                    요소가 1개이면 모든 키워드에 공통 적용되고,
+                    여러 개이면 순차적으로 적용됩니다.
+          field: 각 키워드를 검색할 필드 리스트.
+                 요소가 1개이면 모든 키워드에 공통 적용되고,
+                 여러 개이면 키워드와 1:1로 매칭됩니다.
+
+      Returns:
+          생성된 쿼리 문자열.
+      """
+    if not keyword_list:
+        return ""
+
+    num_keywords = len(keyword_list)
+
+    # --- 1. 단일 키워드 처리 (새로 추가된 부분) ---
+    if num_keywords == 1:
+        keyword = keyword_list[0]
+        field_name = field[0]
+        return f'{field_name}:"{keyword}"'
+
+    # --- 2. 여러 키워드 처리 ---
+
+    # operator 리스트 준비
+    if len(operator) == 1:
+        operators = operator * (num_keywords - 1)
+    else:
+        # 순차 연산자일 경우 개수 검증
+        if len(operator) != num_keywords - 1:
+            raise ValueError(
+                f"operator가 여러 개일 경우, 개수는 키워드 개수보다 1개 적어야 합니다."
+            )
+        operators = operator
+
+    # field 리스트 준비 (기존 버그 수정)
+    if len(field) == 1:  # <-- 이 부분이 len(operator)가 아닌 len(field)여야 합니다.
+        fields = field * num_keywords
+    else:
+        if len(field) != num_keywords:
+            raise ValueError("field가 여러 개일 경우, 개수는 키워드 개수와 일치해야 합니다.")
+        fields = field
+
+    # 각 키워드를 필드와 조합하여 쿼리 텀 생성
+    query_terms = []
+    for i, keyword in enumerate(keyword_list):
+        query_terms.append(f'{fields[i]}:"{keyword}"')
+
+    # 쿼리 텀과 연산자를 번갈아 조합
+    query_parts = [query_terms[0]]
+    for i in range(num_keywords - 1):
+        query_parts.append(f" {operators[i]} ")
+        query_parts.append(query_terms[i + 1])
+
+    return "".join(query_parts)
+
 # 필드는 title, abstract, authorids   참고로 all은 없다. 이건 구현해야 함
 def make_query_openreview_v1(keyword: list[str], field: list[str] = ["title"]) -> dict[str, str]:
     """

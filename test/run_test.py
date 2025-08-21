@@ -1,4 +1,5 @@
 from crawller import *
+from crawller.query import make_query_openreview_search
 from rag.run import run
 
 ######### arxiv query test #########
@@ -22,6 +23,14 @@ search_query2 = make_query_arxiv(keyword_list, operator_list, field_list)
 # 만들어진 arxiv 쿼리
 print("search_query:", search_query)
 print("search_query2:", search_query2)
+
+######### openreview search_notes() query form test #########
+api_keyword = ["Mixture of experts"]
+api_field = ["abstract"]
+
+api_query = make_query_openreview_search(api_keyword, api_field)
+
+print("api_query:", api_query)
 
 ######### api v1 query test #########
 
