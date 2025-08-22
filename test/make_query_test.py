@@ -1,5 +1,5 @@
 import unittest
-from crawller import *
+from crawler import *
 
 # 이전에 제공된 최종 버전의 함수 3개 (make_query_arxiv, make_query_openreview_v1, make_query_openreview_v2)를
 # 이 위에 붙여넣고 실행하세요.

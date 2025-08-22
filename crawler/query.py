@@ -71,7 +71,7 @@ def make_query_arxiv(keyword_list: list[str], operator: list[str] = ["AND"], fie
 
     return "".join(query_parts)
 
-def make_query_openreview_search(keyword_list: list[str], operator: list[str] = ["AND"], field: list[str] = ["title"]):
+def make_query_openreview_search(keyword_list: list[str], operator: list[str] = ["AND"], field: list[str] = ["all"]):
     """
 
       Args:
@@ -90,6 +90,31 @@ def make_query_openreview_search(keyword_list: list[str], operator: list[str] = 
         return ""
 
     num_keywords = len(keyword_list)
+
+    # --- 1. "all" 필드 특별 처리 (새로 추가된 부분) ---
+    if field and field[0].lower() == "all":
+        # 키워드가 하나일 경우
+        if num_keywords == 1:
+            return f'"{keyword_list[0]}"'
+
+        # 사용할 operator 리스트 준비
+        if len(operator) == 1:
+            operators = operator * (num_keywords - 1)
+        else:
+            if len(operator) != num_keywords - 1:
+                raise ValueError("operator가 여러 개일 경우, 개수는 키워드 개수보다 1개 적어야 합니다.")
+            operators = operator
+
+        # 키워드에 따옴표 추가
+        quoted_keywords = [f'"{k}"' for k in keyword_list]
+
+        # 쿼리 텀과 연산자를 번갈아 조합
+        query_parts = [quoted_keywords[0]]
+        for i in range(num_keywords - 1):
+            query_parts.append(f" {operators[i].upper()} ")
+            query_parts.append(quoted_keywords[i + 1])
+
+        return "".join(query_parts)
 
     # --- 1. 단일 키워드 처리 (새로 추가된 부분) ---
     if num_keywords == 1:
@@ -130,6 +155,71 @@ def make_query_openreview_search(keyword_list: list[str], operator: list[str] = 
         query_parts.append(query_terms[i + 1])
 
     return "".join(query_parts)
+
+
+def plan_openreview_v1_queries(keyword_list: list[str], operator: list[str], field: list[str]) -> list[dict]:
+    """
+    OpenReview API V1의 제약사항에 맞춰 복합 쿼리를 여러 개의 단순 쿼리로 분해하여 API 호출 계획을 생성합니다.
+
+    이 함수는 사용자의 복합 논리식((A AND B) OR C)을 API V1이 실행할 수 있는
+    단순 쿼리 딕셔너리의 리스트([{'f1':'A', 'f2':'B'}, {'f3':'C'}])로 변환합니다.
+    반환된 리스트를 순회하며 여러 번 API를 호출하고 결과를 합쳐야 합니다.
+
+    Args:
+        keyword_list: 검색할 키워드 리스트.
+        operator: 키워드 사이에 적용될 'AND' 또는 'OR' 연산자 리스트.
+        field: 각 키워드에 매칭될 필드 리스트.
+
+    Returns:
+        get_notes()의 content 파라미터로 사용할 쿼리 딕셔너리들의 리스트.
+
+    Raises:
+        ValueError: 입력 리스트들의 길이가 맞지 않거나, AND로 연결된 덩어리 내에
+                    동일한 필드가 중복될 경우 발생합니다.
+    """
+    # --- 1. 입력 유효성 검증 ---
+    if not keyword_list:
+        return []
+    if len(keyword_list) != len(field) or (len(keyword_list) > 1 and len(keyword_list) - 1 != len(operator)):
+        raise ValueError("keyword, field, operator 리스트의 길이가 규칙에 맞지 않습니다.")
+
+    if len(keyword_list) == 1:
+        return [{field[0]: keyword_list[0]}]
+
+    # --- 2. 쿼리를 'OR' 기준으로 분해하기 ---
+    query_plan = []
+    current_and_clause = {}
+
+    # 첫 번째 키워드로 초기화
+    current_and_clause[field[0]] = keyword_list[0]
+
+    for i, op in enumerate(operator):
+        op_upper = op.upper()
+        # 다음 키워드와 필드 정보
+        next_keyword = keyword_list[i + 1]
+        next_field = field[i + 1]
+
+        if op_upper == "AND":
+            # AND 덩어리에 추가. 동일 필드가 이미 있으면 V1에서 처리 불가.
+            if next_field in current_and_clause:
+                raise ValueError(
+                    f"API V1은 AND로 연결된 쿼리 내에 동일한 필드('{next_field}')를 중복해서 사용할 수 없습니다."
+                )
+            current_and_clause[next_field] = next_keyword
+
+        elif op_upper == "OR":
+            # OR를 만나면, 지금까지 만든 AND 덩어리를 계획에 추가하고 새 덩어리 시작
+            query_plan.append(current_and_clause)
+            current_and_clause = {next_field: next_keyword}
+
+        else:
+            raise ValueError(f"지원하지 않는 operator입니다: '{op}'")
+
+    # 마지막으로 만들어진 AND 덩어리 추가
+    if current_and_clause:
+        query_plan.append(current_and_clause)
+
+    return query_plan
 
 # 필드는 title, abstract, authorids   참고로 all은 없다. 이건 구현해야 함
 def make_query_openreview_v1(keyword: list[str], field: list[str] = ["title"]) -> dict[str, str]:

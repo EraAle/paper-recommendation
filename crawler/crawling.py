@@ -1,6 +1,7 @@
 import arxiv
+import time
 import random
-from openreview_crawling import *
+from .openreview_crawling import *
 
 def crawling_basic(search_query: str, num: int = 50, sort_op: str="relevance") -> list[dict[str, str]]:
     """
@@ -73,7 +74,19 @@ def main_crawling(search_query:str, limit: int = 50, date: list[int] = None, acc
             crawling_num += len(documents)
 
             if crawling_num < limit:
-                documents = documents + crawling_openreview_v1(search_query, limit, accept=True)
+                time.sleep(3)
+                remain_limit = limit - crawling_num
+                documents = documents + crawling_openreview_v1(search_query, remain_limit, accept=True)
+
+                # 중복 제거 로직 예시 (v1, v2 호출 이후)
+                unique_docs = {}
+                for doc in documents:
+                    # url이나 id를 고유 키로 사용
+                    doc_id = doc.get('url') or doc.get('id')
+                    if doc_id not in unique_docs:
+                        unique_docs[doc_id] = doc
+
+                documents = list(unique_docs.values())
         # date 조건, accept 조건이 없으니 arxiv 사용
         else:
             documents = documents + crawling_basic(search_query, limit)

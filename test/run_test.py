@@ -1,5 +1,5 @@
-from crawller import *
-from crawller.query import make_query_openreview_search
+from crawler import *
+from crawler.query import make_query_openreview_search
 from rag.run import run
 
 ######### arxiv query test #########
