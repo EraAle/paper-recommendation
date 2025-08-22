@@ -9,8 +9,8 @@ client = openreview.api.OpenReviewClient(
 )
 
 # Search for papers with 'GPT' in the title from the ICLR 2024 conference
-search_results = client.get_all_notes(
-    content={'title': 'GPT'}  # Use the 'content' parameter for keyword search
+search_iterator = client.search_notes(
+    term="GPT"
 )
 
 print(f"Found {len(search_results)} papers with 'GPT' in the title.")

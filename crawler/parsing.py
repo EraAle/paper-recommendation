@@ -1,5 +1,6 @@
 from .query import *
 
+# 근데 이거 반드시 ''로 감싼 키워드를 주든가 내가 ''를 없애고 다시 붙여서 사용해야 할듯
 def hard_parsing(keyword_dict: dict, field: str = "all") -> str:
     """
     Main 키워드와 Optional 키워드를 모두 '반드시' 포함하는 쿼리를 생성합니다.

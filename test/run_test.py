@@ -32,6 +32,9 @@ api_query = make_query_openreview_search(api_keyword, api_field)
 
 print("api_query:", api_query)
 
+document = crawling_openreview_v2("transformer AND attention", 50, False)
+document_print(document)
+
 ######### api v1 query test #########
 
 # api_v1_keyword = "Mixture of experts"

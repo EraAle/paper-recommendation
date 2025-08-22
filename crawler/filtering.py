@@ -111,3 +111,21 @@ def arxiv_date_filter(documents: list[dict[str, any]], date: list[int]) -> list[
     print(f"필터링 완료: 총 {len(documents)}개 중 {len(filtered_documents)}개 논문이 선택되었습니다.")
     return filtered_documents
 
+
+def na_filter(documents: list[dict[str, any]]) -> list[dict[str, any]]:
+    filtered_documents = []
+    for doc in documents:
+        title = str(doc.get('title', '') or '').strip()
+        abstract = str(doc.get('abstract', '') or '').strip()
+        url = str(doc.get('url', '') or '').strip()
+
+        # 모든 필드가 유효해야 통과 (AND)
+        ok_title = (title and title.upper() != 'N/A')
+        ok_abstract = (abstract and abstract.upper() != 'N/A')
+        ok_url = (url and url.upper() != 'N/A' and url.startswith(('http://', 'https://')))
+
+        if ok_title and ok_abstract and ok_url:
+            filtered_documents.append(doc)
+
+    print(f"필터링 완료: 총 {len(documents)}개 중 {len(filtered_documents)}개 논문이 선택되었습니다.")
+    return filtered_documents

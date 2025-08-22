@@ -3,10 +3,7 @@ import time
 import random
 from .openreview_crawling import *
 
-import arxiv
-import time
-
-import time, urllib.parse, requests, feedparser
+import urllib.parse, requests, feedparser
 from typing import Any, List, Dict
 
 

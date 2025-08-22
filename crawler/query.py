@@ -2,6 +2,8 @@
 # When using this, ask them to write keywords within the list using only double quotes (""), not single quotes ('').
 # The sort options are relevance, lastupdate, and submitted.
 from collections import defaultdict
+import re
+from typing import Sequence, Union, Optional
 
 def make_query_arxiv(keyword_list: list[str], operator: list[str] = ["AND"], field: list[str] = ["title"]) -> str:
     """
@@ -341,3 +343,82 @@ def make_query_openreview_v2(keyword_list: list[str], operator: list[str] = ["AN
         final_query[f] = "".join(parts)
 
     return final_query
+
+# ES Query String에서 이스케이프 필요한 문자
+_ES_SPECIALS = r'[\+\-\=\&\|\>\<\!\(\)\{\}\[\]\^"~\*\?:\\\/]'
+
+def _escape_es(text: str) -> str:
+    return re.sub(_ES_SPECIALS, lambda m: '\\' + m.group(0), text)
+
+def _normalize_ops(ops: Union[str, Sequence[str]], n_terms: int) -> list[str]:
+    if isinstance(ops, str):
+        return [ops.upper()] * (n_terms - 1)
+    ops = [o.upper() for o in ops]
+    if len(ops) == n_terms - 1:
+        return ops
+    raise ValueError("operators 길이는 keywords 길이 - 1 과 같아야 함")
+
+def _to_field_path(name: str) -> str:
+    mapping = {
+        "title": "content.title",
+        "abstract": "content.abstract",
+        "authors": "content.authors",
+        "authorids": "content.authorids",
+        "keywords": "content.keywords",
+        "venue": "content.venue",
+        "venueid": "content.venueid",
+        "all": ""
+    }
+    return mapping.get(name.lower(), name)
+
+def build_search_notes_query_v2(
+    keywords: Sequence[str],
+    operators: Union[str, Sequence[str]] = "AND",
+    field: Union[str, Sequence[str]] = "all",
+    negative_keywords: Optional[Sequence[str]] = None,
+    phrase: bool = True
+) -> str:
+    """
+    OpenReview API v2 search_notes(term=...)에 넣을 query-string을 생성.
+
+    Args:
+        keywords: 검색 키워드 리스트
+        operators: AND/OR (문자열 또는 연산자 시퀀스)
+        field: 단일 필드명("title", "abstract", "all" 등) 또는 각 키워드별 필드 시퀀스
+        negative_keywords: 제외할 키워드 리스트
+        phrase: True면 공백 있는 키워드는 자동으로 "..." 로 감싸줌
+    """
+    if not keywords:
+        raise ValueError("keywords는 비어있을 수 없음")
+    if isinstance(field, str):
+        fields = [_to_field_path(field)] * len(keywords)
+    else:
+        if len(field) != len(keywords):
+            raise ValueError("field 시퀀스 길이는 keywords와 같아야 함")
+        fields = [_to_field_path(f) for f in field]
+
+    ops = _normalize_ops(operators, len(keywords))
+
+    def wrap(tok: str) -> str:
+        tok = _escape_es(tok.strip())
+        if phrase and " " in tok:
+            return f"\"{tok}\""
+        return tok
+
+    parts = []
+    for i, (kw, fpath) in enumerate(zip(keywords, fields)):
+        token = wrap(kw)
+        scoped = f"{fpath}:{token}" if fpath else token
+        parts.append(scoped)
+        if i < len(ops):
+            parts.append(ops[i])
+
+    query = " ".join(parts)
+    if len(keywords) > 1:
+        query = f"({query})"
+
+    if negative_keywords:
+        negs = [f"NOT {wrap(nk)}" for nk in negative_keywords]
+        query = f"{query} " + " ".join(negs)
+
+    return query
