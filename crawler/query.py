@@ -69,7 +69,7 @@ def make_query_arxiv(keyword_list: list[str], operator: list[str] = ["AND"], fie
         query_parts.append(f" {operators[i]} ")
         query_parts.append(query_terms[i + 1])
 
-    return "".join(query_parts)
+    return "".join  (query_parts)
 
 def make_query_openreview_search(keyword_list: list[str], operator: list[str] = ["AND"], field: list[str] = ["all"]):
     """
@@ -180,8 +180,15 @@ def plan_openreview_v1_queries(keyword_list: list[str], operator: list[str], fie
     # --- 1. 입력 유효성 검증 ---
     if not keyword_list:
         return []
-    if len(keyword_list) != len(field) or (len(keyword_list) > 1 and len(keyword_list) - 1 != len(operator)):
-        raise ValueError("keyword, field, operator 리스트의 길이가 규칙에 맞지 않습니다.")
+
+    for i in range(len(field)):
+        if field[i].lower() == "all":
+            field[i] = "query"
+    if len(field) == 1:
+        field = field * len(keyword_list)
+
+    if len(operator) == 1:
+        operator = operator * (len(keyword_list) - 1)
 
     if len(keyword_list) == 1:
         return [{field[0]: keyword_list[0]}]
@@ -247,12 +254,14 @@ def make_query_openreview_v1(keyword: list[str], field: list[str] = ["title"]) -
 
 
     # 유효한 필드명인지 간단히 확인 (필요에 따라 추가)
-    valid_fields = {'title', 'abstract', 'authorids'}
+    valid_fields = {'title', 'abstract', 'authorids', 'all'}
     field_name = field[0]
     if field_name not in valid_fields:
         raise ValueError(f"Invalid field name for API v1: {field_name}. Use one of {valid_fields}")
 
     # API v1 쿼리는 {'필드명': '키워드'} 형태의 딕셔너리
+    if field_name == 'all':
+        return {'query': keyword}
     return {field_name: keyword_name}
 
 def make_query_openreview_v2(keyword_list: list[str], operator: list[str] = ["AND"], field: list[str] = ["title"]) -> dict[str, str]:

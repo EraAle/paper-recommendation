@@ -9,7 +9,7 @@ from .filtering import *
 # accept 지원 따로 안하지만
 # 나중에 필터링 걸 때 사용하기 위해 date, accept 필터링에 사용할 정보도 같이 들고오자
 # --- OpenReview API v1 크롤링 함수 (주로 ~2022년 데이터) ---
-def crawling_openreview_v1(search_query: str, limit: int, date: list[int] = None, accept: bool = True) -> list[dict[str, any]]:
+def crawling_openreview_v1(search_query: str, limit: int, accept: bool = True) -> list[dict[str, any]]:
     """
     [구 버전 API] OpenReview에서 ~2022년까지의 논문을 페이징하여 검색합니다.
     - limit이 100을 초과하면 100개씩 나누어 요청하고 3초씩 대기합니다.
@@ -21,8 +21,6 @@ def crawling_openreview_v1(search_query: str, limit: int, date: list[int] = None
     client = openreview.Client(baseurl='https://api.openreview.net')
 
     # 2022년 12월 31일을 기준으로 그 이전 데이터만 가져오도록 설정
-    end_date_v1 = datetime(2023, 12, 31, 23, 59, 59)
-    maxtcdate_v1 = int(time.mktime(end_date_v1.timetuple()) * 1000)
 
     try:
         while len(documents) < limit:
@@ -32,29 +30,12 @@ def crawling_openreview_v1(search_query: str, limit: int, date: list[int] = None
 
             print(f"v1 API: {offset}번째부터 {current_page_limit}개의 논문을 가져옵니다...")
 
-            if date is None:
-                # offset과 limit을 사용하여 페이징 수행
-                page_results = client.get_notes(
-                    query=search_query,
-                    limit=current_page_limit,
-                    offset=offset,
-                    maxtcdate=maxtcdate_v1
-                )
-            else:
-                end_date_v1 = datetime(date[1], 12, 31, 23, 59, 59)
-                start_date_v1 = datetime(date[0], 1, 1, 00, 00, 00)
-
-                maxtcdate_v1 = int(time.mktime(end_date_v1.timetuple()) * 1000)
-                mintcdate_v1 = int(time.mktime(start_date_v1.timetuple()) * 1000)
-
-                page_results = client.get_notes(
-                    query=search_query,
-                    limit=current_page_limit,
-                    offset=offset,
-                    mintcdate=mintcdate_v1,
-                    maxtcdate=maxtcdate_v1
-                )
-
+            # offset과 limit을 사용하여 페이징 수행
+            page_results = client.get_notes(
+                content=search_query,
+                limit=current_page_limit,
+                offset=offset,
+            )
             # 더 이상 가져올 결과가 없으면 루프 종료
             if not page_results:
                 print("더 이상 결과가 없어 검색을 중단합니다.")
@@ -88,10 +69,10 @@ def crawling_openreview_v1(search_query: str, limit: int, date: list[int] = None
 
     return documents
 
+
 def crawling_openreview_v2(
         search_query: str,
         limit: int,
-        date: list[int] = None,
         accept: bool = True
 ) -> list[dict[str, any]]:
     """
@@ -118,23 +99,13 @@ def crawling_openreview_v2(
 
 
     try:
-        if date is None:
-            # get_all_notes 대신 search_notes를 사용합니다.
-            search_iterator = client.search_notes(
-                query=search_query,
-                mintcdate=start_ts
-            )
-        else:
-            # 날짜 범위를 유닉스 타임스탬프(ms)로 변환
-            start_ts = int(datetime(date[0], 1, 1).timestamp() * 1000)
-            end_ts = int(datetime(date[1], 12, 31, 23, 59, 59).timestamp() * 1000)
 
-            # get_all_notes 대신 search_notes를 사용합니다.
-            search_iterator = client.search_notes(
-                query=search_query,
-                mintcdate=start_ts,
-                maxtcdate=end_ts
-            )
+        # get_all_notes 대신 search_notes를 사용합니다.
+        search_iterator = client.search_notes(
+            term=search_query,
+            # mintcdate=start_ts
+        )
+
 
         for note in search_iterator:
             # limit에 도달하면 검색 중단
@@ -173,7 +144,8 @@ def crawling_openreview_v2(
     return documents
 
 
-def crawling_openreview_mix(search_query: str, limit: int = 50, date: list[int] = [2021, 2025], accept = True):
+
+def crawling_openreview_mix(search_query: str, search_query_v1, limit: int = 50, date: list[int] = [2021, 2025], accept = True):
     documents_v1 = []
     documents_v2 = []
 
@@ -198,5 +170,7 @@ def crawling_openreview_mix(search_query: str, limit: int = 50, date: list[int] 
     date_v1 = [date[0], 2022]
     date_v2 = [2023, date[1]]
 
-    documents_v1 = crawling_openreview_v1(search_query, limit_v1, date_v1, accept=True)
-    documents_v2 = crawling_openreview_v2(search_query, limit_v2, date_v2, accept=True)
+    documents_v1 = crawling_openreview_v1(search_query_v1, limit_v1, accept=True)
+    documents_v2 = crawling_openreview_v2(search_query, limit_v2, accept=True)
+
+    return documents_v1 + documents_v2
