@@ -1,0 +1,4 @@
+{
+  "python.defaultInterpreterPath": "/home/eraale/WorkStation/python/paper-recommendation/.venv/bin/python3",
+  "python.terminal.activateEnvironment": true
+}

@@ -1,0 +1,20 @@
+[project]
+name = "paper-recommendation"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "en-core-web-sm",
+    "ipykernel>=6.30.1",
+    "jupyter>=1.1.1",
+    "pipeline>=0.1.0",
+    "rank-bm25>=0.2.2",
+    "rich>=14.1.0",
+    "sentence-transformers>=5.1.0",
+    "spacy>=3.8.7",
+    "torch>=2.8.0",
+]
+
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
