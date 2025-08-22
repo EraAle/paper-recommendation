@@ -111,6 +111,61 @@ def arxiv_date_filter(documents: list[dict[str, any]], date: list[int]) -> list[
     print(f"필터링 완료: 총 {len(documents)}개 중 {len(filtered_documents)}개 논문이 선택되었습니다.")
     return filtered_documents
 
+from datetime import datetime, timezone
+from typing import Any as any
+
+def openreview_date_filter(documents: list[dict[str, any]], date: list[int]) -> list[dict[str, any]]:
+    """
+    OpenReview 문서 리스트에서 특정 연도 범위에 해당하는 논문만 필터링합니다.
+    우선순위: content.year(또는 year) > mdate(ms) > cdate(ms)
+
+    Args:
+        documents: {'title','abstract','url','cdate', ...} 등의 딕셔너리 리스트
+        date: [start_year, end_year]
+
+    Returns:
+        조건을 만족하는 문서 리스트
+    """
+    if not date or len(date) != 2:
+        return documents
+
+    start_year, end_year = date[0], date[1]
+    filtered_documents = []
+
+    print(f"\n{start_year}년부터 {end_year}년까지의 논문을 (OpenReview 기준) 필터링합니다...")
+
+    for doc in documents:
+        paper_year = None
+
+        # 1) content.year 또는 year (정수) 우선
+        #    주: 네 documents에는 보통 content 전체를 담지 않지만, 혹시 추가해뒀다면 사용
+        if isinstance(doc.get('year'), int):
+            paper_year = doc['year']
+        elif isinstance(doc.get('content_year'), int):  # 혹시 content.year를 따로 빼놨을 경우
+            paper_year = doc['content_year']
+
+        # 2) mdate(수정 시각, ms) → 연도
+        if paper_year is None and isinstance(doc.get('mdate'), (int, float)):
+            try:
+                paper_year = datetime.fromtimestamp(doc['mdate'] / 1000, tz=timezone.utc).year
+            except Exception:
+                pass
+
+        # 3) cdate(생성 시각, ms) → 연도
+        if paper_year is None and isinstance(doc.get('cdate'), (int, float)):
+            try:
+                paper_year = datetime.fromtimestamp(doc['cdate'] / 1000, tz=timezone.utc).year
+            except Exception:
+                pass
+
+        # 필터 적용
+        if paper_year is not None and start_year <= paper_year <= end_year:
+            filtered_documents.append(doc)
+
+    print(f"필터링 완료: 총 {len(documents)}개 중 {len(filtered_documents)}개 논문이 선택되었습니다.")
+    return filtered_documents
+
+
 
 def na_filter(documents: list[dict[str, any]]) -> list[dict[str, any]]:
     filtered_documents = []

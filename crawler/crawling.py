@@ -1,6 +1,8 @@
 import arxiv
 import time
 import random
+
+from .parsing import *
 from .openreview_crawling import *
 
 import urllib.parse, requests, feedparser
@@ -93,19 +95,34 @@ def crawling_basic(search_query: str, num: int = 50, sort_op: str = "submitted")
     return documents[:num]
 
 
-def main_crawling(search_query,
+def main_crawling(keyword_dict: dict,
+                  field: str = "all",
                   num: int = 50,
                   sort_op: str = "sumitted",
-                  date: list[int] = None) -> list[dict[str, any]]:
+                  date: list[int] = None, accept = False) -> list[dict[str, any]]:
 
     if date is None:
-        documents = crawling_basic(search_query, num, sort_op)
+        if accept == True:
+            search_query = soft_parsing_arxiv(keyword_dict, field)
+            documents = crawling_openreview_v2(search_query, num, accept)
+        else:
+            search_query = soft_parsing_openreview(keyword_dict, field)
+            documents = crawling_basic(search_query, num, sort_op)
     else:
-        new_num = 3 * num
-        documents = crawling_basic(search_query, new_num, sort_op)
-        documents = arxiv_date_filter(documents, date)
-        if len(documents) > num:
-            documents = documents[:num]
+        if accept == True:
+            new_num = 3 * num
+            search_query = soft_parsing_openreview(keyword_dict, field)
+            documents = crawling_openreview_v2(search_query, num, accept)
+            documents = openreview_date_filter(documents, date)
+        else:
+            new_num = 3 * num
+            search_query = soft_parsing_arxiv(keyword_dict, field)
+            documents = crawling_basic(search_query, new_num, sort_op)
+            documents = arxiv_date_filter(documents, date)
+
+    if len(documents) > num:
+        documents = documents[:num]
+
     return documents
 
 
@@ -145,94 +162,3 @@ def random_crawling(sample_size: int = 20, num: int = 10) -> list[dict[str, str]
 
     return random_document
 
-BASE = "https://export.arxiv.org/api/query"
-
-def fetch_arxiv_bulk(query: str, want: int = 3000, page_size: int = 50,
-                     delay: float = 3.0, max_retries: int = 3,
-                     sort_by: str = "submittedDate", sort_order: str = "descending") -> List[Dict[str, Any]]:
-    docs: List[Dict[str, Any]] = []
-    seen = set()
-    start = 0
-    consecutive_empty = 0
-
-    def entry_to_doc(e):
-        title = (getattr(e, "title", "") or "").strip()
-        pdf_url = getattr(e, "pdf_url", None)
-        entry_id = getattr(e, "id", "") or getattr(e, "entry_id", "")
-        if not pdf_url:
-            pdf_url = entry_id.replace("/abs/", "/pdf/") + ".pdf" if "/abs/" in entry_id else entry_id
-        return title, {
-            "title": title,
-            "url": pdf_url,
-            "abstract": getattr(e, "summary", ""),
-            "updated_date": getattr(e, "updated", None),
-            "published_date": getattr(e, "published", None),
-            "id": entry_id,
-            "authors": [a.name for a in getattr(e, "authors", [])] if hasattr(e, "authors") else [],
-        }
-
-    print(f"총 {want}개의 논문 검색을 시작합니다.")
-    while len(docs) < want:
-        params = {
-            "search_query": query,
-            "start": start,
-            "max_results": page_size,
-            "sortBy": sort_by,
-            "sortOrder": sort_order,
-        }
-        url = f"{BASE}?{urllib.parse.urlencode(params)}"
-
-        feed = None
-        last_exc = None
-        for attempt in range(1, max_retries + 1):
-            try:
-                r = requests.get(url, timeout=30)
-                if r.status_code in (429, 500, 502, 503, 504):
-                    raise RuntimeError(f"HTTP {r.status_code}")
-                r.raise_for_status()
-                feed = feedparser.parse(r.text)
-                if feed.entries:
-                    break
-                last_exc = ValueError("Empty page")
-            except Exception as e:
-                last_exc = e
-            sleep_s = delay * (1.5 ** (attempt - 1))
-            print(f"[warn] {last_exc} → {sleep_s:.1f}s 대기 후 재시도({attempt}/{max_retries})")
-            time.sleep(sleep_s)
-
-        if feed is None or not feed.entries:
-            consecutive_empty += 1
-            if consecutive_empty >= 3:
-                print("[error] 빈 페이지 3회 연속. 중단.")
-                break
-            # ★ 경계 우회: start를 반 페이지 뒤로 되돌림
-            start = max(0, start - page_size // 2)
-            time.sleep(delay)
-            continue
-        else:
-            consecutive_empty = 0
-
-        added = 0
-        for e in feed.entries:
-            title, d = entry_to_doc(e)
-            key = (title, d["url"])
-            if key in seen:
-                continue
-            seen.add(key)
-            docs.append(d)
-            added += 1
-            if len(docs) >= want:
-                break
-
-        print(f"[page] start={start} got={added} have={len(docs)}/{want}")
-        start += page_size
-
-        # 장거리 예의상 쿨다운
-        if len(docs) % 500 == 0 and len(docs) < want:
-            print("장거리 예의상 7초 휴식…")
-            time.sleep(7)
-
-        time.sleep(delay)
-
-    print(f"총 {len(docs)}개의 논문 검색을 완료했습니다.")
-    return docs
