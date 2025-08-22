@@ -28,7 +28,6 @@ def crawling_basic(search_query: str, num: int = 50, sort_op: str = "submitted")
         sort_criterion = sort_criterion_map.get(sort_op, arxiv.SortCriterion.SubmittedDate)
 
         client = arxiv.Client(page_size=100, delay_seconds=3.0, num_retries=5)
-        print(f"총 {num}개의 논문 검색을 시작합니다.")
 
         max_empty_retries = 5
         empty_retries = 0
@@ -65,7 +64,7 @@ def crawling_basic(search_query: str, num: int = 50, sort_op: str = "submitted")
                     got += 1
 
                     if len(documents) % 500 == 0 and len(documents) < num:
-                        print(f"현재 {len(documents)}개. 7초 대기…")
+                        print(f"document: {len(documents)}. waiting 7 seconds…")
                         time.sleep(7)
 
                 if got == 0:
@@ -96,7 +95,16 @@ def main_crawling(keyword_dict: dict,
                   field: str = "all",
                   num: int = 50,
                   sort_op: str = "sumitted",
-                  date: list[int] = None, accept = False) -> list[dict[str, any]]:
+                  date: list[int] = None, accept = False, openreview: bool = False) -> list[dict[str, any]]:
+
+    if openreview:
+        search_query = soft_parsing_openreview(keyword_dict, field=field)
+        documents = crawling_openreview_v2(search_query, num, accept)
+        if date is None:
+            return documents
+        else:
+            documents = openreview_date_filter(documents, date)
+            return documents
 
     if date is None:
         if accept == True:

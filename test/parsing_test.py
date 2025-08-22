@@ -39,16 +39,16 @@ from rag.run import run
 #
 # instruction = "I want to read llm paper. for example, large language model. and alignment rlhf dpo and retrieval rag efficiency quantization and distillation paper."
 
-# keyword_data = {
-#     "main": [
-#         ["multimodal", "vision-language", "vlm"],   # 동의어 그룹 1 (OR)
-#         ["reasoning", "chain of thought", "cot"],   # 동의어 그룹 2 (OR)
-#         ["memory", "long-term memory"]              # 동의어 그룹 3 (OR)
-#     ],
-#     "optional": ["tool-use", "agent", "planning"]
-# }
-#
-# instruction = "I want to read multimodal paper. for example, vision-language vlm. and reasoning chain of thought cot and memory long-term memory tool-use agent and planning paper."
+keyword_data = {
+    "main": [
+        ["multimodal", "vision-language", "vlm"],   # 동의어 그룹 1 (OR)
+        ["reasoning", "chain of thought", "cot"],   # 동의어 그룹 2 (OR)
+        ["memory", "long-term memory"]              # 동의어 그룹 3 (OR)
+    ],
+    "optional": ["tool-use", "agent", "planning"]
+}
+
+instruction = "I want to read multimodal paper. for example, vision-language vlm. and reasoning chain of thought cot and memory long-term memory tool-use agent and planning paper."
 
 
 # 함수 실행
@@ -66,28 +66,29 @@ from rag.run import run
 # query = soft_parsing_openreview(keyword_data, field="all")
 # print(query)
 #
-test_keyword_data = ["test1", "test2", "test3"]
-operator = ["AND", "OR"]
-field = ["title", "abstract", "all"]
-#
-query_open = make_query_v2(test_keyword_data, operator, field=field)
-print("이거임", query_open)
+# test_keyword_data = ["test1", "test2", "test3"]
+# operator = ["AND", "OR"]
+# field = ["title", "abstract", "all"]
+# #
+# query_open = make_query_v2(test_keyword_data, operator, field=field)
+# print("이거임", query_open)
 
 # 100개 나왔음
-# document_arxiv = main_crawling(keyword_data, field="all", num=150, date=None, accept=False)
+# document_arxiv = main_crawling(keyword_data, field="all", num=1000, date=None, accept=False)
 # document_print(document_arxiv)
 #
 # document_arxiv_date = main_crawling(keyword_data, field="all", num=150, date=[2024, 2024], accept=False)
 # document_print(document_arxiv_date)
 
-# document_openreview = main_crawling(keyword_data, field="all", num=50, date=None, accept=True)
+document_openreview = main_crawling(keyword_data, field="all", num=200, date=None, accept=False, openreview=True   )
+document_print(document_openreview)
 
 #
-document_openreview_date = main_crawling(keyword_data, field="all", num=250, date=[2023, 2025], accept=True)
-document_print(document_openreview_date)
+# document_openreview_date = main_crawling(keyword_data, field="all", num=250, date=[2023, 2025], accept=True)
+# document_print(document_openreview_date)
 # #
-result = run(instruction, document_openreview_date, top_k=5)
-document_print(result)
+# result = run(instruction, document_arxiv_date, top_k=5)
+# document_print(result)
 
 
 
