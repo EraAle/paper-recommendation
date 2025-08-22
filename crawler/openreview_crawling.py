@@ -5,64 +5,6 @@ import time
 import re
 from .filtering import *
 
-# v1은 2022까지의 자료 찾기
-# accept 지원 따로 안하지만
-# 나중에 필터링 걸 때 사용하기 위해 date, accept 필터링에 사용할 정보도 같이 들고오자
-# --- OpenReview API v1 크롤링 함수 (주로 ~2022년 데이터) ---
-def crawling_openreview_v1(search_query: str, limit: int, accept: bool = True) -> list[dict[str, any]]:
-    """
-    [구 버전 API] OpenReview에서 ~2022년까지의 논문을 페이징하여 검색합니다.
-    - limit이 100을 초과하면 100개씩 나누어 요청하고 3초씩 대기합니다.
-    """
-    documents = []
-    client = openreview.api.OpenReviewClient(baseurl='https://api1.openreview.net')
-
-    # 날짜 범위를 유닉스 타임스탬프(ms)로 변환
-    start_ts = int(datetime(2023, 1, 1).timestamp() * 1000)
-
-    try:
-
-        # get_all_notes 대신 search_notes를 사용합니다.
-        search_iterator = client.search_notes(
-            term=search_query
-        )
-
-        for note in search_iterator:
-            # limit에 도달하면 검색 중단
-            if len(documents) >= limit:
-                print(f"Limit({limit})에 도달하여 검색을 중단합니다.")
-                break
-
-            # accept=True일 경우, 필터링 로직 수행
-            if accept:
-                decision = note.content.get('decision', {}).get('value', '')
-                venue = note.content.get('venue', {}).get('value', '')
-
-                # decision 또는 venue 필드에 'accept'가 포함되어 있는지 확인 (대소문자 무시)
-                if re.search('accept', decision, re.IGNORECASE) or re.search('accept', venue, re.IGNORECASE):
-                    documents.append({
-                        'title': note.content.get('title', {}).get('value', 'N/A'),
-                        'url': f"https://openreview.net/forum?id={note.id}",
-                        'abstract': note.content.get('abstract', {}).get('value', 'N/A'),
-                        'cdate': note.cdate,
-                        'decision_info': decision or venue
-                    })
-            else:  # accept=False이면 필터링 없이 모두 추가
-                documents.append({
-                    'title': note.content.get('title', {}).get('value', 'N/A'),
-                    'url': f"https://openreview.net/forum?id={note.id}",
-                    'abstract': note.content.get('abstract', {}).get('value', 'N/A'),
-                    'cdate': note.cdate,
-                    'decision_info': ""  # 필터링 안했으므로 비워둠
-                })
-
-        print(f"v2 API에서 최종 {len(documents)}개의 논문을 찾았습니다.")
-
-    except Exception as e:
-        print(f"v2 API 검색 중 오류 발생: {e}")
-
-    return documents
-
 
 # --- 값 추출 유틸: v1( {'value': ...} ) / v2( "..." ) 모두 문자열로 ---
 def _as_str(x) -> str:
@@ -239,34 +181,3 @@ def crawling_openreview_v2(
 
     return documents
 
-
-
-def crawling_openreview_mix(search_query: str, search_query_v1, limit: int = 50, date: list[int] = [2021, 2025], accept = True):
-    documents_v1 = []
-    documents_v2 = []
-
-    client_v1 = openreview.Client(baseurl='https://api.openreview.net')
-    client_v2 = openreview.api.OpenReviewClient(baseurl='https://api2.openreview.net')
-
-    # 얼마씩 나눠서 가져올지 결정
-    year_v1 = 2023 - date[0]
-    year_v2 = date[1] - 2022
-
-    total_year = year_v1 + year_v2
-
-    # 변환한 limit
-    limit_v1 = round((year_v1 / total_year) * limit)
-    limit_v2 = round((year_v2 / total_year) * limit)
-
-    # 혹시 모를 반올림 오류를 위해, 총합이 total_limit을 넘지 않도록 보정
-    if limit_v1 + limit_v2 > limit:
-        limit_v1 = limit - limit_v2
-    if limit_v1 <= 0: limit_v1 = 1  # 최소 1개는 가져오도록 설정
-
-    date_v1 = [date[0], 2022]
-    date_v2 = [2023, date[1]]
-
-    documents_v1 = crawling_openreview_v1(search_query_v1, limit_v1, accept=True)
-    documents_v2 = crawling_openreview_v2(search_query, limit_v2, accept=True)
-
-    return documents_v1 + documents_v2

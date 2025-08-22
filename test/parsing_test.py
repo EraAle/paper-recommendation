@@ -1,4 +1,5 @@
 from crawler import *
+from rag.run import run
 
 # keyword_data = {
 #   "main": [
@@ -9,12 +10,22 @@ from crawler import *
 #
 #     }
 
+# keyword_data = {
+#     "main": [
+#     ["transformer"]
+#   ],
+#   "optional": []
+#   }
+
 keyword_data = {
     "main": [
-    ["transformer"]
-  ],
-  "optional": []
-  }
+        ["transformer", "attention is all you need"], # 동의어 그룹 1 (OR)
+        ["reasoning", "chain of thought"]            # 동의어 그룹 2 (OR)
+    ],
+    "optional": ["long-context", "in-context learning"]
+}
+
+instruction = "I want to read transformer paper. for example, attention is all you need. and reasoning long-context and in-context learning paper."
 
 
 # 함수 실행
@@ -29,7 +40,7 @@ print(hard_query)
 print("\n--- Soft Parsing (OR) ---")
 print(soft_query)
 
-query = soft_parsing_openreview(keyword_data, field="title")
+query = soft_parsing_openreview(keyword_data, field="all")
 print(query)
 
 # 100개 나왔음
@@ -39,8 +50,12 @@ print(query)
 # document_arxiv_date = main_crawling(keyword_data, field="all", num=150, date=[2024, 2024], accept=False)
 # document_print(document_arxiv_date)
 #
-document_openreview = main_crawling(keyword_data, field="title", num=50, date=None, accept=True)
+document_openreview = main_crawling(keyword_data, field="all", num=50, date=None, accept=True)
 document_print(document_openreview)
+
+result = run(instruction, document_openreview, top_k=5)
+document_print(result)
+
 #
 # document_openreview_date = main_crawling(keyword_data, field="all", num=50, date=[2024, 2024], accept=True)
 # document_print(document_openreview_date)
