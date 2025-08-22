@@ -90,16 +90,16 @@ def _as_es_token(raw: str, phrase: bool = True) -> str:
 def _or_field_path(name: str) -> str:
     name = (name or "all").lower()
     mapping = {
-        "title": "content.title",
-        "abstract": "content.abstract",
-        "authors": "content.authors",
-        "authorids": "content.authorids",
-        "keywords": "content.keywords",
-        "venue": "content.venue",
-        "venueid": "content.venueid",
+        "title": "content.title.value",
+        "abstract": "content.abstract.value",
+        "authors": "content.authors.value",
+        "authorids": "content.authorids.value",
+        "keywords": "content.keywords.value",
+        "venue": "content.venue.value",
+        "venueid": "content.venueid.value",
         "all": ""  # 빈 문자열이면 필드 스코핑 없이 전역 검색
     }
-    return mapping.get(name, name)  # 이미 content.title처럼 온 건 그대로 사용
+    return mapping.get(name, name)
 
 # ===== 단일 레벨 쿼리 빌더 (arXiv의 make_query_arxiv 스타일) =====
 def make_query_openreview(keyword_list: list[str],
@@ -205,7 +205,7 @@ def soft_parsing_openreview(keyword_dict: dict, field: str = "all") -> str:
 
     # 3) 결합은 OR
     if main_query and opt_query:
-        return f"({main_query}) OR ({opt_query})"
+        return f"({main_query}) AND ({opt_query})"
     elif main_query:
         return main_query
     else:
