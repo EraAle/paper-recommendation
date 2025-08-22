@@ -3,162 +3,77 @@ import time
 import random
 from .openreview_crawling import *
 
-def crawling_basic(search_query: str, num: int = 50, sort_op: str="relevance") -> list[dict[str, str]]:
+import arxiv
+import time
+
+
+def crawling_basic(search_query: str, num: int = 50, sort_op: str = "relevance") -> list[dict[str, str]]:
     """
-    Takes a query generated using make_query and retrieves a list of dictionaries containing paper information,
-    sorted according to the specified sort option.
-
-    Args:
-        search_query: A query generated using the make_query function.
-        num (int): Maximum number of papers to retrieve.
-        sort_op: Sorting option. Can be one of the following:
-            - relevance: by relevance
-            - lastupdate: by last updated date
-            - submitted: by original submission date
-
-    Returns:
-        A list of dictionaries, each representing a document.
+    쿼리를 이용해 논문 정보를 리스트 형태로 가져옵니다.
+    검색 중 오류 발생 시, 그때까지 수집된 데이터를 반환합니다.
     """
+    documents = []  # try 블록 밖에서 선언해야 except에서도 접근 가능합니다.
 
-    documents = []
+    try:
+        sort_criterion_map = {
+            "relevance": arxiv.SortCriterion.Relevance,
+            "lastupdate": arxiv.SortCriterion.LastUpdatedDate,
+            "submitted": arxiv.SortCriterion.SubmittedDate
+        }
+        sort_criterion = sort_criterion_map.get(sort_op, arxiv.SortCriterion.SubmittedDate)
 
-    max_results = num
-
-    if sort_op == "relevance":
         search = arxiv.Search(
             query=search_query,
             max_results=num,
-            sort_by=arxiv.SortCriterion.Relevance
-        )
-    elif sort_op == "lastupdate":
-        search = arxiv.Search(
-            query=search_query,
-            max_results=num,
-            sort_by=arxiv.SortCriterion.LastUpdatedDate
-        )
-    else:
-        search = arxiv.Search(
-          query = search_query,
-          max_results = max_results,
-          sort_by = arxiv.SortCriterion.SubmittedDate
+            sort_by=sort_criterion
         )
 
-    client = arxiv.Client()
-    results = list(client.results(search))
+        client = arxiv.Client()
+        results = client.results(search)
 
-    for result in results:
-      temp_dict = {}
+        print(f"총 {num}개의 논문 검색을 시작합니다.")
 
-      title = result.title
-      temp_dict['title'] = title
+        for result in results:
+            temp_dict = {
+                'title': result.title,
+                'url': result.pdf_url,
+                'abstract': result.summary,
+                'updated_date': result.updated
+            }
+            documents.append(temp_dict)
 
-      url = result.pdf_url
-      temp_dict['url'] = url
+            # 100건마다 4초 대기
+            if len(documents) % 100 == 0 and len(documents) < num:
+                print(f"현재 {len(documents)}개 검색 완료. API 요청 제한을 위해 4초간 대기합니다...")
+                time.sleep(4)
 
-      abstract = result.summary
-      temp_dict['abstract'] = abstract
+        print(f"총 {len(documents)}개의 논문 검색을 완료했습니다.")
 
-      documents.append(temp_dict)
+    except Exception as e:
+        # try 블록 안에서 어떤 종류의 에러든 발생하면 이 코드가 실행됩니다.
+        print(f"\n[!] 검색 중 오류가 발생했습니다: {e}")
+        print(f"지금까지 수집된 {len(documents)}개의 논문을 반환합니다.")
 
+    # 성공적으로 완료되었거나, 오류가 발생하여 except 블록에서 반환되지 않은 경우
+    # 최종적으로 수집된 documents를 반환합니다.
     return documents
 
-# def main_crawling(keyword_list:list[str],
-#                   operator: list[str] = ["AND"],
-#                   field: list[str] = ["title"],
-#                   limit: int = 50,
-#                   date: list[int] = None,
-#                   accept: bool = True) -> list[dict[str, any]]:
-#     # date가 없다면
-#     documents = []
-#     crawling_num = 0
-#     if date is None:
-#         # accept 조건이 있다면 그래도 openreview
-#         if accept == True:
-#             # date 조건이 없으니 api v2 먼저 사용
-#             search_query = make_query_openreview_search(keyword_list, operator, field)
-#             documents = documents + crawling_openreview_v2(search_query, limit, accept=True)
-#             crawling_num += len(documents)
-#
-#             if crawling_num < limit:
-#                 time.sleep(3)
-#                 remain_limit = limit - crawling_num
-#                 search_query2 = plan_openreview_v1_queries(keyword_list, operator, field)
-#                 documents = documents + crawling_openreview_v1(search_query2, remain_limit, accept=True)
-#
-#                 # 중복 제거 로직 예시 (v1, v2 호출 이후)
-#                 unique_docs = {}
-#                 for doc in documents:
-#                     # url이나 id를 고유 키로 사용
-#                     doc_id = doc.get('url') or doc.get('id')
-#                     if doc_id not in unique_docs:
-#                         unique_docs[doc_id] = doc
-#
-#                 documents = list(unique_docs.values())
-#         # date 조건, accept 조건이 없으니 arxiv 사용
-#         else:
-#             search_query = make_query_arxiv(keyword_list, operator, field)
-#             documents = documents + crawling_basic(search_query, limit)
-#     else:
-#         search_query = make_query_openreview_search(keyword_list, operator, field)
-#         search_query_v1 = plan_openreview_v1_queries(keyword_list, operator, field)
-#         documents = crawling_openreview_mix(search_query, search_query_v1, limit, date, accept)
-#
-#     return documents
 
-def main_crawling(keyword_list: list[str],
-                  operator: list[str] = ["AND"],
-                  field: list[str] = ["title"],
-                  limit: int = 50,
-                  date: list[int] = None,
-                  accept: bool = True) -> list[dict[str, any]]:
-    documents = []
-    crawling_num = 0
+def main_crawling(search_query,
+                  num: int = 50,
+                  sort_op: str = "relevance",
+                  date: list[int] = None) -> list[dict[str, any]]:
 
     if date is None:
-        if accept == True:
-            # V2 API는 make_query_openreview_search로 만든 문자열 쿼리 사용 (내부 crawling_openreview_v2 함수에서 'query' -> 'term' 수정 필요!)
-            search_query_v2 = make_query_openreview_search(keyword_list, operator, field)
-            documents += crawling_openreview_v2(search_query_v2, limit, accept=True)
-            crawling_num += len(documents)
-
-            if crawling_num < limit:
-                print(f"v2 API에서 총 {crawling_num}개 수집. 3초 대기 후 v1 API로 추가 검색...")
-                time.sleep(3)
-                remain_limit = limit - crawling_num
-
-                # 🛠️ V1 쿼리 생성 로직 수정: 'all' 필드 AND/OR 연산 시 단순 문자열 사용
-                if field == ["all"]:
-                    # 'all' 필드 검색은 make_query_openreview_search로 V1/V2 공통 쿼리 문자열 생성
-                    search_query_v1 = make_query_openreview_search(keyword_list, operator, field)
-                    documents += crawling_openreview_v1(search_query_v1, remain_limit, date=None, accept=True)
-                else:
-                    # 그 외 복합 쿼리는 plan_openreview_v1_queries 사용
-                    search_query_v1 = plan_openreview_v1_queries(keyword_list, operator, field)
-                    documents += crawling_openreview_v1(search_query_v1, remain_limit, date=None, accept=True)
-
-                # 중복 제거 로직
-                unique_docs = {}
-                for doc in documents:
-                    doc_id = doc.get('url') or doc.get('id')
-                    if doc_id and doc_id not in unique_docs:
-                        unique_docs[doc_id] = doc
-                documents = list(unique_docs.values())
-        else:
-            # arxiv 사용 로직 (수정 필요 없음)
-            search_query = make_query_arxiv(keyword_list, operator, field)
-            documents += crawling_basic(search_query, limit)
+        documents = crawling_basic(search_query, num, sort_op)
     else:
-        # 🛠️ V1 쿼리 생성 로직 수정: 'all' 필드 AND/OR 연산 시 단순 문자열 사용
-        if field == ["all"]:
-            search_query = make_query_openreview_search(keyword_list, operator, field)
-            search_query_v1 = search_query
-        else:
-            search_query = make_query_openreview_search(keyword_list, operator, field)
-            search_query_v1 = plan_openreview_v1_queries(keyword_list, operator, field)
-
-        documents = crawling_openreview_mix(search_query, search_query_v1, limit, date, accept)
-
+        new_num = 3 * num
+        documents = crawling_basic(search_query, new_num, sort_op)
+        documents = arxiv_date_filter(documents, date)
+        if len(documents) > num:
+            documents = documents[:num]
     return documents
+
 
 
 def random_crawling(sample_size: int = 20, num: int = 10) -> list[dict[str, str]]:

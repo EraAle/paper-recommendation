@@ -88,3 +88,26 @@ def v1_accept_filter(documents: list[dict]) -> list[dict]:
 #     documents = title_documents + abstract_documents + authors_documents + authorids_documents + venueid_documents
 #
 #     return documents
+
+def arxiv_date_filter(documents: list[dict[str, any]], date: list[int]) -> list[dict[str, any]]:
+    """
+    논문 리스트에서 특정 연도 범위(최종 수정일 기준)에 해당하는 논문만 필터링합니다.
+    """
+    if not date or len(date) != 2:
+        return documents
+
+    start_year, end_year = date[0], date[1]
+    filtered_documents = []
+
+    print(f"\n{start_year}년부터 {end_year}년까지의 논문을 (최종 수정일 기준으로) 필터링합니다...")
+
+    for doc in documents:
+        # ★★★ updated_date를 기준으로 필터링하도록 변경 ★★★
+        if 'updated_date' in doc and isinstance(doc['updated_date'], datetime):
+            paper_year = doc['updated_date'].year
+            if start_year <= paper_year <= end_year:
+                filtered_documents.append(doc)
+
+    print(f"필터링 완료: 총 {len(documents)}개 중 {len(filtered_documents)}개 논문이 선택되었습니다.")
+    return filtered_documents
+
