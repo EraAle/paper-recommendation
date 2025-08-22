@@ -18,7 +18,7 @@ print("--- arxiv 호출해서 가져오기 테스트 ---")
 # operator_list2 = ["AND", "OR"]
 # query = make_query_arxiv(keyword_list2, operator_list2, field_list2)
 # print(query)
-# document = crawling_basic(query, num=125)
+# document = crawling_basic(query, num=500)
 # document_print(document)
 
 # keyword_list3 = ["transformer", "google"]
