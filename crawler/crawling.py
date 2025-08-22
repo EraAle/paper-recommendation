@@ -17,7 +17,7 @@ def _short_id(entry_id: str) -> str:
 
 def crawling_basic(search_query: str, num: int = 50, sort_op: str = "submitted") -> list[dict[str, Any]]:
     documents: list[dict[str, Any]] = []
-    seen_ids = set()  # ← dedup 핵심
+    seen_ids = set()
 
     try:
         sort_criterion_map = {
@@ -60,18 +60,17 @@ def crawling_basic(search_query: str, num: int = 50, sort_op: str = "submitted")
                         'url': pdf_url or entry_id,
                         'abstract': result.summary,
                         'updated_date': result.updated,
-                        'arxiv_id': sid,  # (옵션) 저장해두면 편함
+                        'arxiv_id': sid,
                     })
                     got += 1
 
-                    # 500개마다만 쿨다운 (client가 이미 3초 쉬어줌)
                     if len(documents) % 500 == 0 and len(documents) < num:
                         print(f"현재 {len(documents)}개. 7초 대기…")
                         time.sleep(7)
 
                 if got == 0:
                     empty_retries += 1
-                    print(f"[warn] 빈 페이지/새 항목 0건 → {empty_retries}/5 재시도 (5초 대기)")
+                    print(f"[warn] empty page error → {empty_retries}/5 try (waiting 5 secondes)")
                     time.sleep(5)
                 else:
                     empty_retries = 0
@@ -79,18 +78,16 @@ def crawling_basic(search_query: str, num: int = 50, sort_op: str = "submitted")
             except Exception as e:
                 if "unexpectedly empty" in str(e).lower():
                     empty_retries += 1
-                    print(f"[warn] 빈 페이지 예외 → {empty_retries}/5 재시도 (5초 대기)")
+                    print(f"[warn] empty page error → {empty_retries}/5 try (waiting 5 secondes)")
                     time.sleep(5)
                     continue
                 else:
-                    print(f"[stop] 알 수 없는 오류: {e}")
+                    print(f"[stop] error: {e}")
                     break
 
-        print(f"총 {len(documents)}개의 논문 검색을 완료했습니다.")
 
     except Exception as e:
-        print(f"\n[!] 검색 중 치명적 오류: {e}")
-        print(f"지금까지 수집된 {len(documents)}개 반환")
+        print(f"\n[!] stop error and return: {e}")
 
     return documents[:num]
 

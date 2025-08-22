@@ -6,7 +6,7 @@ import re
 from .filtering import *
 
 
-# --- 값 추출 유틸: v1( {'value': ...} ) / v2( "..." ) 모두 문자열로 ---
+# venue마다 형식이 달라서, 다 v2에서 사용하는 문자열로 변환
 def _as_str(x) -> str:
     if isinstance(x, dict) and 'value' in x:
         v = x.get('value', '')
@@ -51,32 +51,23 @@ def _sleep_until_iso(iso: str, fallback_secs: int = 3):
     except Exception:
         time.sleep(fallback_secs)
 
-
+# search_notes를 사용하는데, 이건 relevance로 가져온다
+# 100개 넘으면 귾어서 가져온다. 그 사이는 3초 쉬기
+# 오류나면 3번 재시도. 만약 그 쉬라는 에러면 정말로 쉰다
+# 중복 제거
 def crawling_openreview_v2(
         search_query: str,
         limit: int,
         accept: bool = True
 ) -> list[dict[str, any]]:
-    """
-    [신 버전 API] OpenReview에서 특정 기간의 논문을 검색하고 accept 여부로 필터링합니다.
-    - get_all_notes 대신 search_notes를 사용하여 키워드 검색을 수행합니다.
-    - sort_op='relevance'는 search_notes의 기본 동작이므로 별도 처리가 필요 없습니다.
-    - limit이 100을 넘으면 100개 단위로 끊어 가져오며, 배치 사이에는 고정 3초 대기합니다.
-    - 레이트리밋(429) 등 오류가 나면 배치당 최대 3회 재시도, 429면 resetTime까지 추가 대기합니다.
-    - 재시도 실패 시 현재까지 수집한 documents를 반환합니다.
-    """
-    print(f"--- OpenReview v2 API로 검색을 시작합니다 ---")
+
     documents = []
+    seen_forums = set()
     client = openreview.api.OpenReviewClient(baseurl='https://api2.openreview.net')
 
-    # 최소 invitation 컷(댓글/리뷰/리스폰스 제거), 제출물 위주
     _non_submission = re.compile(r'/(Comment|Rebuttal|Review)\b', re.IGNORECASE)
-
-    # 고정 대기(배치 사이)
     FIXED_SLEEP_SECS = 3
-    # 배치 최대 크기
     BATCH_CAP = 100
-    # 배치당 재시도 횟수
     MAX_RETRIES = 3
 
     try:
@@ -86,7 +77,6 @@ def crawling_openreview_v2(
         while collected < limit:
             to_fetch = min(BATCH_CAP, max(1, limit - collected))
 
-            # ---- 서버 호출 (재시도 포함, 429면 resetTime까지 추가 대기) ----
             notes = None
             for attempt in range(1, MAX_RETRIES + 1):
                 try:
@@ -95,41 +85,34 @@ def crawling_openreview_v2(
                         limit=to_fetch,
                         offset=offset
                     )
-                    break  # 성공
+                    break
                 except Exception as e:
-                    print(f"[경고] 배치 요청 실패({attempt}/{MAX_RETRIES}): {e}")
+                    print(f"error. retry ({attempt}/{MAX_RETRIES}): {e}")
                     msg = str(e).lower()
-
-                    # 429 / RateLimitError 감지 → resetTime까지 대기
                     if '429' in msg or 'ratelimiterror' in msg or 'too many requests' in msg:
                         reset_iso = None
-                        # e 자체에서 추출 시도
                         if hasattr(e, 'args') and e.args:
                             reset_iso = _extract_reset_time(e.args[0])
                         if not reset_iso:
                             reset_iso = _extract_reset_time(e)
                         if reset_iso:
-                            print(f"[안내] 레이트리밋 발생: resetTime={reset_iso} 까지 대기합니다.")
+                            print(f"limit error: resetTime={reset_iso} .")
                             _sleep_until_iso(reset_iso, fallback_secs=FIXED_SLEEP_SECS)
                         else:
-                            # resetTime을 못 읽으면 고정 3초만
                             time.sleep(FIXED_SLEEP_SECS)
                     else:
-                        # 비-429 에러면 점증 대기(1,2) + 마지막은 고정 3초
                         time.sleep(FIXED_SLEEP_SECS if attempt == MAX_RETRIES else max(1, attempt - 1))
-
                     if attempt == MAX_RETRIES:
-                        print("[오류] 재시도 한계를 초과했습니다. 지금까지 수집한 문서를 반환합니다.")
-                        return documents  # 부분 결과 반환
+                        print("error and return.")
+                        return documents
 
             if not notes:
-                break  # 더 이상 결과 없음
+                break
 
             got_from_server = 0
             for note in notes:
                 got_from_server += 1
 
-                # 제출물 위주: replyto가 있으면 댓글/리뷰 가능성 ↑ → 컷
                 if getattr(note, 'replyto', None):
                     continue
                 inv = getattr(note, 'invitation', '') or ''
@@ -139,7 +122,7 @@ def crawling_openreview_v2(
                 c = note.content or {}
                 title = _as_str(c.get('title')).strip()
                 abstract = _as_str(c.get('abstract')).strip()
-                if not title or not abstract:  # abstract 필수
+                if not title or not abstract:
                     continue
 
                 decision = _as_str(c.get('decision'))
@@ -154,6 +137,11 @@ def crawling_openreview_v2(
                     decision_info = ""
 
                 forum_id = getattr(note, 'forum', None) or note.id
+
+                if forum_id in seen_forums:
+                    continue
+                seen_forums.add(forum_id)
+
                 documents.append({
                     'title': title,
                     'url': f"https://openreview.net/forum?id={forum_id}",
@@ -164,20 +152,15 @@ def crawling_openreview_v2(
 
                 collected += 1
                 if collected >= limit:
-                    print(f"Limit({limit})에 도달하여 검색을 중단합니다.")
                     break
 
-            # 다음 페이지로
             offset += got_from_server
-
-            # --- 배치 사이 고정 대기(요청자 요구 유지) ---
             if collected < limit:
                 time.sleep(FIXED_SLEEP_SECS)
 
-        print(f"v2 API에서 최종 {len(documents)}개의 논문을 찾았습니다.")
 
     except Exception as e:
-        print(f"[오류] v2 API 검색 중 예외 발생: {e} — 현재까지 수집한 {len(documents)}개를 반환합니다.")
+        print(f"error and return: {e}")
 
     return documents
 
