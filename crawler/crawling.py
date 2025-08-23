@@ -29,7 +29,7 @@ def crawling_basic(search_query: str, num: int = 50, sort_op: str = "submitted")
 
         client = arxiv.Client(page_size=100, delay_seconds=3.0, num_retries=5)
 
-        max_empty_retries = 5
+        max_empty_retries = 2
         empty_retries = 0
 
         while len(documents) < num and empty_retries < max_empty_retries:
