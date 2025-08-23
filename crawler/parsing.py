@@ -1,4 +1,4 @@
-from .query import *
+from crawler.query import *
 
 # 근데 이거 반드시 ''로 감싼 키워드를 주든가 내가 ''를 없애고 다시 붙여서 사용해야 할듯
 def hard_parsing_arxiv(keyword_dict: dict, field: str = "all") -> str:
@@ -174,3 +174,4 @@ def soft_parsing_openreview(keyword_dict: dict, field: str = "all") -> str:
         return main_query
     else:
         return opt_query
+

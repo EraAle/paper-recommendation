@@ -3,7 +3,7 @@ import openreview
 from datetime import datetime
 import time
 import re
-from .filtering import *
+from crawler.filtering import *
 
 
 # venue마다 형식이 달라서, 다 v2에서 사용하는 문자열로 변환

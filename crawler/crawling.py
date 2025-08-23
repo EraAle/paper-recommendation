@@ -2,8 +2,8 @@ import arxiv
 import time
 import random
 
-from .parsing import *
-from .openreview_crawling import *
+from crawler.parsing import *
+from crawler.openreview_crawling import *
 
 import urllib.parse, requests, feedparser
 from typing import Any, List, Dict
@@ -69,7 +69,7 @@ def crawling_basic(search_query: str, num: int = 50, sort_op: str = "submitted")
 
                 if got == 0:
                     empty_retries += 1
-                    print(f"[warn] empty page error → {empty_retries}/5 try (waiting 5 secondes)")
+                    print(f"[warn] empty page error → {empty_retries}/2 try (waiting 5 secondes)")
                     time.sleep(5)
                 else:
                     empty_retries = 0
@@ -77,7 +77,7 @@ def crawling_basic(search_query: str, num: int = 50, sort_op: str = "submitted")
             except Exception as e:
                 if "unexpectedly empty" in str(e).lower():
                     empty_retries += 1
-                    print(f"[warn] empty page error → {empty_retries}/5 try (waiting 5 secondes)")
+                    print(f"[warn] empty page error → {empty_retries}/2 try (waiting 5 secondes)")
                     time.sleep(5)
                     continue
                 else:

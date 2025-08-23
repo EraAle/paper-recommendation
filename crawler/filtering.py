@@ -1,7 +1,7 @@
 from datetime import datetime
 import re
-from .query import *
-from .openreview_crawling import *
+from crawler.query import *
+from crawler.openreview_crawling import *
 
 def v1_accept_filter(documents: list[dict[str, any]]) -> list[dict[str, any]]:
 
