@@ -64,7 +64,6 @@ def _strip_outer_quotes(s: str) -> str:
     return s
 
 def _as_es_token(raw: str, phrase: bool = True) -> str:
-    """양끝 따옴표 제거 → ES 특수문자 이스케이프 → 공백 있으면 "..." 로 감싸기"""
     x = _strip_outer_quotes(str(raw or ""))
     x = _escape_es(x)
     if phrase and any(ch.isspace() for ch in x):

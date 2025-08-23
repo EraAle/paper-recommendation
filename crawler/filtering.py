@@ -90,5 +90,4 @@ def na_filter(documents: list[dict[str, any]]) -> list[dict[str, any]]:
         if ok_title and ok_abstract and ok_url:
             filtered_documents.append(doc)
 
-    print(f"필터링 완료: 총 {len(documents)}개 중 {len(filtered_documents)}개 논문이 선택되었습니다.")
     return filtered_documents

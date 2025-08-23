@@ -15,10 +15,6 @@ def _as_str(x) -> str:
 
 # --- resetTime 파싱 & 대기 유틸 ---
 def _extract_reset_time(err) -> str | None:
-    """
-    OpenReview RateLimitError 메시지에서 resetTime(ISO) 뽑기.
-    - err가 dict/객체/문자열 어느 형태로 와도 최대한 캐치
-    """
     # 1) dict 형태로 들어온 경우
     if isinstance(err, dict):
         # {'details': {'resetTime': '2025-08-22T14:41:17.038Z'}} 같은 구조
