@@ -1,4 +1,4 @@
-# llm/glue.py
+# llm/generater_research_cards.py
 from __future__ import annotations
 from typing import List, Dict, Any
 from .base_model import BaseLocalLLM, LocalLLMConfig

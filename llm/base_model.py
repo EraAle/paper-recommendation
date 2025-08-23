@@ -19,9 +19,9 @@ def extract_final(text: str) -> str:
     <final> ... </final> 블록 안의 내용을 반환합니다.
     해당 블록이 없으면 원문 전체를 반환합니다.
     """
-    match = re.search(FINAL_RE, text)
-    if match:
-        return match.group(1).strip()
+    final_contents = re.findall(r"<final>(.*?)</final>", text, re.DOTALL)
+    if final_contents:
+        return final_contents[1].strip()
     return text.strip()
 
 try:
@@ -98,13 +98,8 @@ class BaseLocalLLM:
             repetition_penalty=self.cfg.repetition_penalty,
             do_sample=self.cfg.do_sample,
         )
-        # BaseLocalLLM.generate 끝부분
         raw = self.tok.decode(out[0], skip_special_tokens=True).strip()
-        print(f"Raw output: {raw}")  # 디버깅용 출력
         txt = _strip_think(raw)
-        print(f"Output without <think>: {txt}")
         extracted = extract_final(txt)
-        print(f"Final extracted output: {extracted}")
     
-        # 간단 분리
         return extracted
