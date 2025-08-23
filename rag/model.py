@@ -16,15 +16,13 @@ cross_encoder_name_dict = {
 }
 
 def get_encoder(model_name: str) -> SentenceTransformer:
-    full_model_name = bi_encoder_name_dict[model_name]
-    if full_model_name:
-        return SentenceTransformer(full_model_name)
+    if model_name in bi_encoder_name_dict.keys():
+        return SentenceTransformer(bi_encoder_name_dict[model_name])
     else:
         return SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
 
 def get_cross_encoder(model_name: str) -> CrossEncoder:
-    full_model_name = cross_encoder_name_dict[model_name]
-    if full_model_name:
-        return CrossEncoder(full_model_name)
+    if model_name in cross_encoder_name_dict.keys():
+        return CrossEncoder(cross_encoder_name_dict[model_name])
     else:
         return CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
