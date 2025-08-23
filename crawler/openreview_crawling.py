@@ -134,9 +134,9 @@ def crawling_openreview_v2(
 
                 forum_id = getattr(note, 'forum', None) or note.id
 
-                if forum_id in seen_forums:
+                if title in seen_forums:
                     continue
-                seen_forums.add(forum_id)
+                seen_forums.add(title)
 
                 documents.append({
                     'title': title,

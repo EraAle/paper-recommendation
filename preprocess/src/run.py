@@ -100,12 +100,10 @@ def run(query: str):
 
     main_keywords = extract_keywords(query)
     return {
-        "main": main_keywords,
+        "main": [[keyword] for keyword in main_keywords],
         "optional": [],
     }
 
-if __name__ == '__main__':
-    setup()
-    for _ in range(10):
-        query = input("query: ")
-        print(run(query))
+def get_model():
+    global model, tokenizer
+    return model, tokenizer

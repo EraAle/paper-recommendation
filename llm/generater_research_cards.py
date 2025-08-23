@@ -14,15 +14,22 @@ def generate_research_cards_markdown(
     max_new_tokens: int = 2048,
     load_in_4bit: bool = False,
     load_in_8bit: bool = False,
+    model = None,
+    tokenizer = None,
 ) -> str:
+    prompts = PromptBuilder(style=style).research_cards(
+        user_instruction=query, docs=docs, show_scores=True
+    )
     cfg = LocalLLMConfig(
         model_id=model_id, device=device, dtype=dtype,
         max_new_tokens=max_new_tokens,
         temperature=0.2, top_p=0.9, do_sample=True,
         load_in_4bit=load_in_4bit, load_in_8bit=load_in_8bit,
     )
-    llm = BaseLocalLLM(cfg)
-    prompts = PromptBuilder(style=style).research_cards(
-        user_instruction=query, docs=docs, show_scores=True
-    )
-    return llm.generate(system=prompts["system"], user=prompts["user"])
+
+    if model is None or tokenizer is None:
+        llm = BaseLocalLLM(cfg)
+        return llm.generate(system=prompts["system"], user=prompts["user"])
+    else:
+        llm = BaseLocalLLM(cfg, model, tokenizer)
+        return llm.generate(system=prompts["system"], user=prompts["user"])
