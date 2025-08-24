@@ -13,13 +13,17 @@ logging.basicConfig(
     handlers=[RichHandler()]
 )
 
+hybrid_retriever = None
+rag_retriever = None
+reranker = None
+
 def hybrid_retrieve(model: HybridRetriever,
                     query: str,
                     documents: list[dict],
                     alpha: float=0.7,
                     top_k: int=1000):
-    # if len(documents) <= top_k:
-    #     return documents
+    if len(documents) <= top_k:
+        return documents
 
     titles = [doc['title'] for doc in documents]
     abstracts = [doc['abstract'] for doc in documents]
@@ -33,8 +37,8 @@ def rag_retrieve(model: RAGRetriever,
                  query: str,
                  documents: list[dict],
                  top_k: int=100):
-    # if len(documents) <= top_k:
-    #     return documents
+    if len(documents) <= top_k:
+        return documents
 
     refs = [doc['title'] + "\n" + doc['abstract'] for doc in documents]
 
@@ -53,6 +57,18 @@ def rerank(model: Reranker,
     retrieved_documents = [documents[i] for i in top_indices]
 
     return retrieved_documents
+
+def setup(encoder_model_name: str = "all-MiniLM-L6-v2",
+          cross_encoder_model_name: str = "ms-marco-MiniLM-L-6-v2",
+          use_cuda: bool = True) -> None:
+    global hybrid_retriever, rag_retriever, reranker
+
+    logging.info("Loading Hybrid Retriever...")
+    hybrid_retriever = HybridRetriever(encoder_model_name, use_cuda=use_cuda)
+    logging.info("Loading RAG Retriever...")
+    rag_retriever = RAGRetriever(encoder_model_name, use_cuda=use_cuda)
+    logging.info("Loading Reranker...")
+    reranker = Reranker(cross_encoder_model_name, use_cuda=use_cuda)
 
 def run(query: str,
         documents: list[dict],
@@ -82,12 +98,7 @@ def run(query: str,
     Returns:
         list[dict]: A list of tuples containing top-k documents sorted by score in descending order.
     """
-    logging.info("Loading Hybrid Retriever...")
-    hybrid_retriever = HybridRetriever(encoder_model_name, use_cuda=use_cuda)
-    logging.info("Loading RAG Retriever...")
-    rag_retriever = RAGRetriever(encoder_model_name, use_cuda=use_cuda)
-    logging.info("Loading Reranker...")
-    reranker = Reranker(cross_encoder_model_name, use_cuda=use_cuda)
+    global hybrid_retriever, rag_retriever, reranker
 
     logging.info("Running Hybrid Retriever...")
     retrieved_documents = hybrid_retrieve(hybrid_retriever, query, documents, alpha=alpha)

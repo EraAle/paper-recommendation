@@ -19,10 +19,8 @@ def extract_final(text: str) -> str:
     <final> ... </final> 블록 안의 내용을 반환합니다.
     해당 블록이 없으면 원문 전체를 반환합니다.
     """
-    match = re.search(FINAL_RE, text)
-    if match:
-        return match.group(1).strip()
-    return text.strip()
+    final_contents = re.findall(r"<final>(.*?)</final>", text, re.DOTALL)
+    return final_contents
 
 try:
     from transformers import BitsAndBytesConfig
@@ -45,7 +43,7 @@ class LocalLLMConfig:
     do_sample: bool = True                 # 샘플링 여부 (True/False)
 
 class BaseLocalLLM:
-    def __init__(self, cfg: LocalLLMConfig):
+    def __init__(self, cfg: LocalLLMConfig, model=None, tokenizer=None):
         self.cfg = cfg
         torch_dtype = self._resolve_dtype(cfg.dtype) # 상태 보고 타입 선택
         quant = None
@@ -58,7 +56,7 @@ class BaseLocalLLM:
                 bnb_4bit_quant_type="nf4",
             )
 
-        self.tok = AutoTokenizer.from_pretrained(cfg.model_id, trust_remote_code=cfg.trust_remote_code, use_fast=True)
+
 
         model_kwargs: Dict[str, Any] = dict(trust_remote_code=cfg.trust_remote_code)
         if quant:
@@ -68,9 +66,15 @@ class BaseLocalLLM:
             if torch_dtype is not None:
                 model_kwargs["torch_dtype"] = torch_dtype
 
-        self.model = AutoModelForCausalLM.from_pretrained(cfg.model_id, **model_kwargs)
-        if not quant and cfg.device in ("cpu", "cuda"):
-            self.model.to(cfg.device)
+        if model is None:
+            self.model = AutoModelForCausalLM.from_pretrained(cfg.model_id, **model_kwargs)
+            self.tok = AutoTokenizer.from_pretrained(cfg.model_id, trust_remote_code=cfg.trust_remote_code,
+                                                     use_fast=True)
+            if not quant and cfg.device in ("cpu", "cuda"):
+                self.model.to(cfg.device)
+        else:
+            self.model = model
+            self.tok = tokenizer
 
     def _resolve_dtype(self, dtype: str): #상태 보고 타입 선택
         if dtype == "auto":
@@ -98,8 +102,8 @@ class BaseLocalLLM:
             repetition_penalty=self.cfg.repetition_penalty,
             do_sample=self.cfg.do_sample,
         )
-        # BaseLocalLLM.generate 끝부분
         raw = self.tok.decode(out[0], skip_special_tokens=True).strip()
-        extracted = extract_final(raw)
-        
+        txt = _strip_think(raw)
+        extracted = extract_final(txt)
+
         return extracted

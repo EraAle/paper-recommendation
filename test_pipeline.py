@@ -1,11 +1,6 @@
-# test_pipeline.py
-# 목적: HybridRetriever → RAGRetriever → Reranker 삼단계 파이프라인을
-#       더미 문서로 빠르게 검증하고, 최종 Top-k를 '리서치 카드' 형태로 출력합니다.
-
 import logging
 from rich.logging import RichHandler
 
-# 여러분의 모듈 경로 그대로 사용
 from rag.hybrid_retriever import HybridRetriever
 from rag.rag_retriever import RAGRetriever
 from rag.reranker import Reranker
@@ -87,7 +82,6 @@ def pretty_print_cards(docs):
     print(md)
 
 def main():
-    # 개별 모듈 로딩(선택적 검증)
     logging.info("Loading models for manual stage checks...")
     hybrid = HybridRetriever("all-MiniLM-L6-v2", use_cuda=False)
     dense = RAGRetriever("all-MiniLM-L6-v2", use_cuda=False)
@@ -113,7 +107,7 @@ def main():
     # 3단계: 크로스엔코더 리랭킹 (최종 Top-k)
     logging.info("Stage3: Reranker...")
     refs2 = [f"{d.get('title','')}\n{d.get('abstract','')}" for d in stage2_docs]
-    top_ce_idx = rerank.run(QUERY, refs2, top_k=min(2, len(stage2_docs)))
+    top_ce_idx = rerank.run(QUERY, refs2, top_k=min(5, len(stage2_docs)))
     final_docs_manual = [stage2_docs[i] for i in top_ce_idx]
 
     # 수동 단계 결과 출력
@@ -121,3 +115,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
