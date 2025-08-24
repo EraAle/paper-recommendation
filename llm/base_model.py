@@ -100,11 +100,6 @@ class BaseLocalLLM:
         )
         # BaseLocalLLM.generate 끝부분
         raw = self.tok.decode(out[0], skip_special_tokens=True).strip()
-        print(f"Raw output: {raw}")  # 디버깅용 출력
-        txt = _strip_think(raw)
-        print(f"Output without <think>: {txt}")
-        extracted = extract_final(txt)
-        print(f"Final extracted output: {extracted}")
-    
-        # 간단 분리
+        extracted = extract_final(raw)
+        
         return extracted
